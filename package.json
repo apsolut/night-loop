@@ -1,0 +1,16 @@
+{
+  "name": "night-loop-project",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "lint": "echo 'M0: wire eslint' && exit 1",
+    "test:unit": "echo 'M0: wire vitest' && exit 1",
+    "test:e2e": "echo 'M0: wire playwright' && exit 1",
+    "test:screenshot": "playwright test --grep @screenshot",
+    "test:flake-baseline": "bun run scripts/flake-baseline.ts",
+    "build": "echo 'M0: wire build' && exit 1",
+    "perf": "echo 'M10: wire perf budget' && exit 1",
+    "seed": "bun run scripts/seed.ts"
+  }
+}

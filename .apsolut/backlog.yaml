@@ -1,0 +1,22 @@
+# NIGHT LOOP backlog. The research / discovery phase (see idea-to-product-pipeline.md) fills
+# M1+ from the derived spec. M0 is always first and always present: nothing is verifiable
+# without the harness. Acceptance criteria must be behavioral and checkable against seeded data,
+# never "implemented".
+
+- id: M0-harness
+  depends_on: []
+  gated: false
+  acceptance:
+    - "bun run build, typecheck, lint, test:unit all pass (replace the package.json placeholders)"
+    - "Playwright headless render produces zero console errors"
+    - "One screenshot baseline committed; ratchet initialized (test:unit green and locked)"
+
+# --- generated per project below this line ---
+# - id: M1-...
+#   depends_on: [M0-harness]
+#   gated: false
+#   acceptance:
+#     - "<behavioral criterion checked against the seed>"
+#
+# Gated milestones (a human owns the decision): mark `gated: true`.
+# Ingestion of real, ground-truth-free data (e.g. live SERPs): mark `gated: hard-block`.

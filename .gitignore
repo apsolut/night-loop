@@ -1,0 +1,26 @@
+# Dependencies
+node_modules/
+.bun/
+
+# Secrets and environment. NEVER commit real credentials.
+.env
+.env.*
+!.env.example
+*.key
+*.pem
+
+# Claude Code local overrides (may hold machine-specific or sensitive settings)
+.claude/settings.local.json
+
+# NIGHT LOOP runtime state (generated per run, not source)
+.apsolut/night-loop/
+.apsolut/runs/
+.apsolut/intake.md
+
+# Build and test output
+dist/
+build/
+coverage/
+playwright-report/
+test-results/
+*.log
