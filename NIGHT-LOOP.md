@@ -35,7 +35,7 @@ scripts/night-loop.sh (supervisor, in tmux)
   the build proves done. Claude never declares itself done; the hook verifies.
 - **State is git + markdown**, not conversation history. A SessionStart hook re-injects
   `progress.md` each (re)launch, so fresh sessions resume cleanly and context never rots.
-- **Armed, not always-on.** The Stop hook only loops when `.apsolut/night-loop/ACTIVE` exists
+- **Armed, not always-on.** The Stop hook only loops when `.apsolut-loop/state/ACTIVE` exists
   (the supervisor creates it). Opening `claude` here manually is never hijacked.
 
 ## Files
@@ -51,11 +51,11 @@ scripts/night-loop.sh (supervisor, in tmux)
 | `.claude/agents/judge.md` | The separate-context verifier for milestone acceptance |
 | `scripts/night-loop.sh` | The tmux supervisor (launch, resume, backoff, halt) |
 | `Dockerfile` | The isolated jail |
-| `.apsolut/backlog.yaml` | The contract (M0 + the research-derived spec) |
-| `.apsolut/progress.md` | The ledger |
-| `.apsolut/constraints.md` | Durable rules, reloaded every plan |
+| `.apsolut-loop/backlog.yaml` | The contract (M0 + the research-derived spec) |
+| `.apsolut-loop/progress.md` | The ledger |
+| `.apsolut-loop/constraints.md` | Durable rules, reloaded every plan |
 
-### Markers (`.apsolut/night-loop/`)
+### Markers (`.apsolut-loop/state/`)
 `ACTIVE` armed · `STEP` turn counter · `CLAIM_DONE` agent's done claim (verified by the hook) ·
 `ALL_BLOCKED` only blocked work remains, halt for morning · `REVIEW` security-surface files touched
 (for the morning review) · `HALTED` supervisor-read halt signal (done/blocked/budget).

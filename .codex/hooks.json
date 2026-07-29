@@ -1,0 +1,35 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Edit|Write|MultiEdit|Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bun 'D:\\sites\\git\\night-loop\\.codex\\hooks\\gate.ts'"
+          }
+        ]
+      }
+    ],
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bun 'D:\\sites\\git\\night-loop\\.codex\\hooks\\resume.ts'"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bun 'D:\\sites\\git\\night-loop\\.codex\\hooks\\loop.ts'"
+          }
+        ]
+      }
+    ]
+  }
+}

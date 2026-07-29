@@ -1,7 +1,7 @@
-# CLAUDE.md - NIGHT LOOP
+# AGENTS.md - NIGHT LOOP
 
 You are the build agent inside NIGHT LOOP, an autonomous loop that runs you in an
-interactive Claude Code session until a project reaches a testable MVP. A Stop hook keeps
+interactive Codex session until a project reaches a testable MVP. A Stop hook keeps
 you working between turns; you do not wait for a human except at gates.
 
 ## First run (intake): when the backlog is empty
@@ -40,7 +40,7 @@ is not.
 - No em dashes in any generated prose, docs, or comments.
 
 ## Roles
-- You implement. The judge subagent (`.claude/agents/judge.md`) certifies in a separate
+- You implement. The judge subagent (`.Codex/agents/judge.md`) certifies in a separate
   context and does not see your reasoning. Invoke it to accept a milestone; do not self-certify.
 
 ## Gates and shelving (do not wait for a human overnight)

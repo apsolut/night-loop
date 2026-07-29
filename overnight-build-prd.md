@@ -6,11 +6,11 @@ This document is the contract you (Claude Code) build against and the only defin
 
 ## 0. How to run this
 
-- This PRD lives at `.apsolut/PRD.md`. `CLAUDE.md` points here and is the entry point.
+- This PRD lives at `.apsolut-loop/PRD.md`. `CLAUDE.md` points here and is the entry point.
 - The loop runs under the NIGHT LOOP supervisor (`scripts/night-loop.sh`) plus a Stop hook (`.claude/hooks/loop.ts`) that enforces the stop condition in Section 3. There is no built-in `/goal`. The Stop hook runs the harness independently of the agent that wrote the code, so the writer is not the one that decides it is done.
 - Gates (Section 7) are enforced by a `PreToolUse` hook that blocks edits to sensitive paths and sensitive commands. When the hook fires, write the request into the digest and stop.
 - Implementation and verification are different subagents (`.claude/agents/implementer`, `.claude/agents/judge`). The judge sees the spec, the artifact, and the harness output. It does not see the implementer's reasoning.
-- State lives in git plus `.apsolut/progress.md` plus `.apsolut/decisions/`. You forget between runs; the repo does not. Resume from the last commit and `progress.md`.
+- State lives in git plus `.apsolut-loop/progress.md` plus `.apsolut-loop/decisions/`. You forget between runs; the repo does not. Resume from the last commit and `progress.md`.
 - Running on Claude Code Max, so the budget is generous. That is not a license to thrash. The stuck protocol (Section 10) is what protects the budget, not frugality.
 
 ## 1. Product
@@ -28,7 +28,7 @@ Pin every version. Do not introduce alternatives. An unstated choice is a hole y
 - Tests: vitest (unit), Playwright (render, DOM, screenshot)
 - Auth: better-auth
 - Billing: Stripe
-- State and knowledge: markdown in `.apsolut/`, git for code
+- State and knowledge: markdown in `.apsolut-loop/`, git for code
 
 If a required convention is not written here, stop and add it to `constraints.md` with a one-line rationale, then continue. Do not guess silently.
 
@@ -104,7 +104,7 @@ No data source is defined. Do NOT build a pipeline that ingests placeholder or f
 Behavior is frozen by the ratchet. Improve only metrics: bundle size, a11y score, render timing against the perf budget. If behavior changes, the ratchet reds and you revert. Optimization that removes a feature is a failure.
 
 **M11 Landing page** (depends: M0, gated: no, human-judged)
-Build to functional and render-clean. The LLM rubric (`.apsolut/rubrics/landing.md`) judges quality. The final taste and conversion call is the human's, not yours. Do not loop on this past the rubric passing; flag it for human review and move on.
+Build to functional and render-clean. The LLM rubric (`.apsolut-loop/rubrics/landing.md`) judges quality. The final taste and conversion call is the human's, not yours. Do not loop on this past the rubric passing; flag it for human review and move on.
 
 ## 7. Gates, stop and ask
 
@@ -120,7 +120,7 @@ A gate is not a failure. It is the loop correctly recognizing a decision a human
 
 ## 8. Constraints (durable rules, reload every plan)
 
-These live in `.apsolut/constraints.md` and you reload them at the start of every plan. Your feedback at a checkpoint appends here, so they grow.
+These live in `.apsolut-loop/constraints.md` and you reload them at the start of every plan. Your feedback at a checkpoint appends here, so they grow.
 
 - Smallest blast radius. Touch the fewest files that satisfy the milestone.
 - No new dependencies without stopping to ask. State why one is needed.
@@ -128,7 +128,7 @@ These live in `.apsolut/constraints.md` and you reload them at the start of ever
 - Never delete or weaken a test to go green. Quarantining a flaky spec (out of the hard tier until determinized) is allowed and is not weakening.
 - E2e tests must be deterministic before they are allowed to gate: wait on state, never on time (no `waitForTimeout`; use `expect.poll` / `toPass` / element waits), fixed clock, seeded RNG, animations and transitions disabled, fonts bundled with `document.fonts.ready` awaited, fixed viewport, no real network. See `judge-and-flake-reliability.md`.
 - Only revert on a reproducible red. A non-reproducible red is flake; quarantine it, do not revert and do not diagnose against it.
-- Architecture decisions get a one-line entry in `.apsolut/decisions/` so they are not re-litigated next run.
+- Architecture decisions get a one-line entry in `.apsolut-loop/decisions/` so they are not re-litigated next run.
 - No em dashes in any generated prose, docs, or comments.
 - [Fill: project-specific naming and structure conventions]
 
@@ -146,7 +146,7 @@ Ingestion (M9) has no ground truth and cannot be looped into existence. Before t
 
 Checkpoint at whichever comes first: a milestone boundary, 100 steps, a gate, a stuck condition, or a budget threshold.
 
-Write `.apsolut/runs/<run-id>/digest.md` so the morning review takes minutes and forces understanding, not a rubber stamp:
+Write `.apsolut-loop/runs/<run-id>/digest.md` so the morning review takes minutes and forces understanding, not a rubber stamp:
 
 ```markdown
 # Run <id> - Checkpoint (reason: <milestone boundary | 100 steps | gate | stuck | budget>)

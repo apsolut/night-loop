@@ -39,7 +39,7 @@ Most of the safeguards and state this idea wants already exist. Build only the f
 | Want | Already in the repo |
 |---|---|
 | Isolated env: AI can mkdir, delete, evolve | `autonomous-build-runtime.md` budget.ts `RAILS` (workDirJail, network deny-by-default), git as undo |
-| "Trello mind" TODO / DOING / DONE | `.apsolut/progress.md` (Done/Doing/Next/Blocked/Deferred/Discovered) |
+| "Trello mind" TODO / DOING / DONE | `.apsolut-loop/progress.md` (Done/Doing/Next/Blocked/Deferred/Discovered) |
 | Judges on each step | `.claude/agents/judge.md` + the ratchet + `judge-and-flake-reliability.md` |
 | Stop at decisions a human owns | the `PreToolUse` gate hook + PRD Section 7 gates |
 | Workflows / subagents | generator-vs-judge split, the Stop-hook loop (`.claude/hooks/loop.ts`) |

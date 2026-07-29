@@ -9,15 +9,15 @@ set -uo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
-NL=".apsolut/night-loop"
+NL=".apsolut-loop/state"
 SESSION="nightloop"
 MAX_RELAUNCH=${NIGHT_LOOP_MAX_RELAUNCH:-200}
 STALL_TICKS=${NIGHT_LOOP_STALL_TICKS:-80}   # 80 ticks x 15s = 20 min of no STEP progress
 PERM_MODE=${NIGHT_LOOP_PERM_MODE:-acceptEdits}   # use bypassPermissions ONLY inside the jail
 
-mkdir -p "$NL" ".apsolut/runs" ".apsolut/decisions"
+mkdir -p "$NL" ".apsolut-loop/runs" ".apsolut-loop/decisions"
 
-KICKOFF=${1:-"Read CLAUDE.md and .apsolut/backlog.yaml, then begin NIGHT LOOP. Build the next unmet milestone, M0 first. Do not stop until the harness proves the build done or a gate halts you."}
+KICKOFF=${1:-"Read CLAUDE.md and .apsolut-loop/backlog.yaml, then begin NIGHT LOOP. Build the next unmet milestone, M0 first. Do not stop until the harness proves the build done or a gate halts you."}
 
 # ---- arm the loop (the Stop hook only engages when ACTIVE exists) ----
 echo "0" > "$NL/STEP"
@@ -68,7 +68,7 @@ while [ -f "$NL/ACTIVE" ]; do
     echo "[night-loop] $why -> resume #$relaunch after ${delay}s"
     stall=0
     sleep "$delay"
-    KICKOFF="Resume NIGHT LOOP from .apsolut/progress.md and git state. Continue the next unmet milestone."
+    KICKOFF="Resume NIGHT LOOP from .apsolut-loop/progress.md and git state. Continue the next unmet milestone."
     launch
   fi
 
