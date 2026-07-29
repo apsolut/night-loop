@@ -209,8 +209,10 @@ Verify this schema against your current Claude Code version. Hooks exist, but th
 const SENSITIVE_PATHS = [/auth/i, /billing/i, /payment/i, /stripe/i, /\.env/, /migrat/i, /schema/i];
 const SENSITIVE_CMDS = [
   /\brm\b/, /\bdrop\b/i, /git\s+push/, /npm\s+publish/,
-  /\b(npm|bun|pnpm|yarn)\s+(add|install|i)\b/, /\b(curl|wget)\b/,
+  /\b(curl|wget)\b/,
 ];
+// Dependency installs (bun add / npm install) are deliberately NOT blocked: every fresh
+// project must install its toolchain, or the loop stalls on its first task.
 
 const raw = await Bun.stdin.text();
 let payload: any = {};

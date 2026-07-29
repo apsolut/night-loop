@@ -153,7 +153,7 @@ The single source of truth for what gets built and what counts as done. The gene
 // orchestrator/gates.ts
 const SENSITIVE = {
   files:    [/auth/i, /billing/i, /payment/i, /stripe/i, /\.env/, /migrat/i, /schema/i],
-  commands: [/\brm\b/, /\bdrop\b/i, /npm publish/, /git push/, /\bcurl|wget\b/, /\binstall\b/],
+  commands: [/\brm\b/, /\bdrop\b/i, /npm publish/, /git push/, /\bcurl|wget\b/],
   milestones: ["auth", "payment", "billing", "migration", "delete"],
 };
 

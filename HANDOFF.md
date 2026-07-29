@@ -45,14 +45,13 @@ Read these instead of re-deriving:
 - **Pi (pi.dev)** is BYO-key -> bills metered API, cannot use the Max subscription. Useful only as
   a cheap orchestrator/decider, not a way to get free Max looping.
 
-### KNOWN BUG still in the published repo (high priority)
+### KNOWN BUG: FIXED 2026-07-29
 `gate.ts` originally blocked `bun install`/`bun add`, which would stop ANY build (every project
-needs to install its toolchain). FIXED in track-screenshots only (removed the install pattern from
-`ESCAPE_CMDS`). The published `night-loop` repo + its docs still have it. To fix in night-loop:
-- `.claude/hooks/gate.ts` ESCAPE_CMDS: drop `/(npm|bun|pnpm|yarn)\s+(add|install|i)/`.
-- Docs that list "dependency install" as gated: `overnight-build-prd.md` Sec 7, the README gate.ts
-  blueprint + SETUP, `autonomous-build-runtime.md` gates.ts SENSITIVE.commands.
-- Then commit + push.
+needs to install its toolchain). Fixed in track-screenshots first, and now fixed in night-loop
+too: the install pattern is removed from ESCAPE_CMDS in `.claude/hooks/gate.ts` and
+`.codex/hooks/gate.ts`, and the docs that listed dependency install as gated
+(`overnight-build-prd.md` Sec 7, the README gate.ts blueprint, `autonomous-build-runtime.md`
+SENSITIVE.commands, CLAUDE.md, AGENTS.md) are updated to match.
 
 ### Other open items on the product
 - GitHub description + topics not set (offered: `claude-code`, `autonomous-agent`, `ai-coding`).

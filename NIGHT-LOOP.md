@@ -34,7 +34,8 @@ scripts/night-loop.sh (supervisor, in tmux)
 - **The loop is the Stop hook.** It runs the harness every turn and forces continuation until
   the build proves done. Claude never declares itself done; the hook verifies.
 - **State is git + markdown**, not conversation history. A SessionStart hook re-injects
-  `progress.md` each (re)launch, so fresh sessions resume cleanly and context never rots.
+  `progress.md` each (re)launch and, while armed, auto-submits the resume kickoff
+  (`initialUserMessage`), so fresh sessions resume cleanly and start working on their own.
 - **Armed, not always-on.** The Stop hook only loops when `.apsolut-loop/state/ACTIVE` exists
   (the supervisor creates it). Opening `claude` here manually is never hijacked.
 
@@ -46,9 +47,10 @@ scripts/night-loop.sh (supervisor, in tmux)
 | `.claude/settings.json` | Registers the Stop / SessionStart / PreToolUse hooks + permission deny rules |
 | `.claude/hooks/loop.ts` | Stop hook = the outer loop and independent done-verifier |
 | `.claude/hooks/resume.ts` | SessionStart hook = injects progress + git state |
-| `.claude/hooks/gate.ts` | PreToolUse hook = blocks dangerous ops, halts at human-owned surfaces |
+| `.claude/hooks/gate.ts` | PreToolUse hook = denies escape commands, flags security surfaces for morning review (never halts) |
 | `.claude/hooks/lib.ts` | Shared helpers (markers, harness runners) |
 | `.claude/agents/judge.md` | The separate-context verifier for milestone acceptance |
+| `.claude/skills/intake/SKILL.md` | The attended front half: 5 questions + research to backlog.yaml |
 | `scripts/night-loop.sh` | The tmux supervisor (launch, resume, backoff, halt) |
 | `Dockerfile` | The isolated jail |
 | `.apsolut-loop/backlog.yaml` | The contract (M0 + the research-derived spec) |
@@ -97,9 +99,10 @@ against test credentials overnight and listed in `REVIEW` for your morning secur
 ## Honest caveats (read before a multi-day run)
 
 1. **Billing.** Interactive Max stays flat but is not infinite: you will hit the 5-hour rolling
-   window and weekly caps. The loop pauses and the supervisor resumes after reset. For a truly
-   uninterrupted multi-day run, headless `claude -p` or the Agent SDK on an API key is more
-   robust, at the cost of metered billing (the Agent SDK credit, as of 2026-06-15, or pay-go).
+   window and weekly caps. The loop pauses and the supervisor resumes after reset. That pause is
+   accepted by design: decision 001 (`.apsolut-loop/decisions/`) rules out headless `claude -p`,
+   the Agent SDK, and API keys, because they bill metered. On flat limits the worst case is a
+   pause, never a bill.
 2. **Rate-limit at the prompt is the rough edge.** If a turn errors on a rate limit, the
    interactive session may sit idle rather than exit. The supervisor catches this with a stall
    detector (no STEP progress for ~20 min -> relaunch with backoff), but it is less crisp than

@@ -111,7 +111,7 @@ Build to functional and render-clean. The LLM rubric (`.apsolut-loop/rubrics/lan
 When you are about to do any of these, do not proceed. Write the request into the digest and stop. The `PreToolUse` hook enforces the path and command set.
 
 - Edit any file matching: `auth`, `billing`, `payment`, `stripe`, `.env`, `migration`, `schema` (after M1)
-- Run any command matching: `rm`, `drop`, `git push`, `npm publish`, dependency install, `curl` or `wget` with side effects
+- Run any command matching: `rm`, `drop`, `git push`, `npm publish`, `curl` or `wget` with side effects (dependency installs are allowed; a build cannot bootstrap without them)
 - Any schema migration after M1
 - Any external API call that writes or charges
 - Milestones M7, M8 (gated) and M9 (hard block)

@@ -54,8 +54,9 @@ is not.
   and you move to the next buildable milestone.
 - Only when the ONLY work left is blocked or unbuildable do you create
   `.apsolut-loop/state/ALL_BLOCKED` and stop. Otherwise keep building until the MVP is done.
-- The PreToolUse hook blocks true escape actions (push, publish, deploy, rm -rf, installs) and
-  continues; it never halts the loop.
+- The PreToolUse hook blocks true escape actions (push, publish, deploy, rm -rf, network fetch) and
+  continues; it never halts the loop. Dependency installs are allowed (a build cannot bootstrap
+  without its toolchain); each new dependency still needs a why in `.apsolut-loop/decisions/`.
 
 ## State (you forget between sessions; the repo does not)
 - Ledger: `.apsolut-loop/progress.md` (Done / Doing / Next / Blocked). Update after every accepted

@@ -10,9 +10,11 @@ import { appendMarker } from "./lib";
 const SECURITY_PATHS = [/auth/i, /billing/i, /payment/i, /stripe/i, /migrat/i, /schema/i];
 
 // Escape / irreversible commands: never part of building or testing. Denied; the loop continues.
+// NOTE: dependency installs (bun add / npm install) are deliberately ALLOWED. Every fresh
+// project must install its toolchain; the jail plus the decisions-file rule cover the risk.
 const ESCAPE_CMDS = [
   /\brm\s+-rf\b/, /\bdrop\s+database\b/i, /git\s+push/, /npm\s+publish/,
-  /\b(npm|bun|pnpm|yarn)\s+(add|install|i)\b/, /\b(curl|wget)\b/,
+  /\b(curl|wget)\b/,
   /\b(vercel|netlify|fly|railway|heroku)\s+(deploy|up|release)\b/i,
 ];
 
@@ -35,7 +37,7 @@ function emit(decision: "deny" | "allow", reason: string, context?: string): nev
 if (tool === "Bash") {
   const cmd = ti.command ?? "";
   if (ESCAPE_CMDS.some((re) => re.test(cmd))) {
-    emit("deny", `Blocked command: ${cmd}. Safety tripwire (destructive / publish / push / deploy / install / ` +
+    emit("deny", `Blocked command: ${cmd}. Safety tripwire (destructive / publish / push / deploy / ` +
                  `network). This is not part of building or testing; achieve the goal another way, do not retry.`);
   }
 }
