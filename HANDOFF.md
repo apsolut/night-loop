@@ -13,16 +13,15 @@ pointer + the things not yet written down.
   built **M0 (harness)** and is on **M1**. Proof the loop actually works.
 
 ## Repo 1: NIGHT LOOP (`D:\sites\git\night-loop`) - the product
-NOTE 2026-07-29: the loop's state namespace was renamed from `.apsolut/` to `.apsolut-loop/`
-so it cannot collide with the apsolut-seshat vault, which owns `.apsolut/`.
-NOTE 2026-07-30: renamed again to `.night-loop/` (markers in `.night-loop/state/`) to match
-the product name; `apsolut` stays as the GitHub namespace only. Same day, everything that
-could collide with a host project's own Claude Code setup was namespaced: the hook scripts
-moved out of `.claude/hooks/` into `.night-loop/hooks/` (one shared copy; the identical
-`.codex/hooks/` twins were deleted, both settings files point at the shared copy), the
-`judge` agent became `night-loop-judge`, and the `intake` skill became `night-loop-intake`.
-Paths below referring to
-track-screenshots still use the OLD `.apsolut/` layout; that repo has not been migrated.
+NOTE 2026-07-30: the loop's namespace is now `.night-loop/` (markers in `.night-loop/state/`),
+matching the product name; `apsolut` stays as the GitHub namespace only. History: `.apsolut/`
+-> `.apsolut-loop/` on 2026-07-29 (to not collide with the apsolut-seshat vault, which owns
+`.apsolut/`) -> `.night-loop/` on 2026-07-30. Same day, everything that could collide with a
+host project's own Claude Code setup was namespaced: the hook scripts moved out of
+`.claude/hooks/` into `.night-loop/hooks/` (one shared copy; the identical `.codex/hooks/`
+twins were deleted, both settings files point at the shared copy), the `judge` agent became
+`night-loop-judge`, and the `intake` skill became `night-loop-intake`. Paths below referring
+to track-screenshots still use the OLD `.apsolut/` layout; that repo has not been migrated.
 Read these instead of re-deriving:
 - `NIGHT-LOOP.md` - operator guide (run, markers, halt reasons, "run while you sleep" model).
 - `CLAUDE.md` - the agent's operating protocol + first-run intake trigger.
