@@ -16,19 +16,24 @@ pointer + the things not yet written down.
 NOTE 2026-07-29: the loop's state namespace was renamed from `.apsolut/` to `.apsolut-loop/`
 so it cannot collide with the apsolut-seshat vault, which owns `.apsolut/`.
 NOTE 2026-07-30: renamed again to `.night-loop/` (markers in `.night-loop/state/`) to match
-the product name; `apsolut` stays as the GitHub namespace only. Paths below referring to
+the product name; `apsolut` stays as the GitHub namespace only. Same day, everything that
+could collide with a host project's own Claude Code setup was namespaced: the hook scripts
+moved out of `.claude/hooks/` into `.night-loop/hooks/` (one shared copy; the identical
+`.codex/hooks/` twins were deleted, both settings files point at the shared copy), the
+`judge` agent became `night-loop-judge`, and the `intake` skill became `night-loop-intake`.
+Paths below referring to
 track-screenshots still use the OLD `.apsolut/` layout; that repo has not been migrated.
 Read these instead of re-deriving:
 - `NIGHT-LOOP.md` - operator guide (run, markers, halt reasons, "run while you sleep" model).
 - `CLAUDE.md` - the agent's operating protocol + first-run intake trigger.
-- `.claude/hooks/loop.ts` - Stop hook = the loop + independent done-verifier. Runs the ratchet
+- `.night-loop/hooks/loop.ts` - Stop hook = the loop + independent done-verifier. Runs the ratchet
   each turn, forces continuation, shelve-and-continue, halts only on done/all-blocked/budget.
-- `.claude/hooks/gate.ts` - PreToolUse: blocks escape commands (push/publish/deploy/rm-rf/curl),
+- `.night-loop/hooks/gate.ts` - PreToolUse: blocks escape commands (push/publish/deploy/rm-rf/curl),
   ALLOWS security-surface code (flags to a REVIEW marker), never halts the loop.
-- `.claude/hooks/resume.ts` - SessionStart: injects progress.md + git state.
-- `.claude/hooks/lib.ts` - markers + harness runners.
-- `.claude/skills/intake/SKILL.md` - front half: 5 questions + competitor research -> backlog.yaml.
-- `.claude/agents/judge.md` - separate-context verifier.
+- `.night-loop/hooks/resume.ts` - SessionStart: injects progress.md + git state.
+- `.night-loop/hooks/lib.ts` - markers + harness runners.
+- `.claude/skills/night-loop-intake/SKILL.md` - front half: 5 questions + competitor research -> backlog.yaml.
+- `.claude/agents/night-loop-judge.md` - separate-context verifier.
 - `scripts/night-loop.sh` - tmux supervisor (Linux/Docker; not usable on the bare Windows host).
 - Design docs: `zero-to-hero-build-loop.md`, `autonomous-build-runtime.md`, `overnight-build-prd.md`,
   `idea-to-product-pipeline.md`, `idea-to-product-example.md`, `judge-and-flake-reliability.md`.
@@ -49,8 +54,9 @@ Read these instead of re-deriving:
 ### KNOWN BUG: FIXED 2026-07-29
 `gate.ts` originally blocked `bun install`/`bun add`, which would stop ANY build (every project
 needs to install its toolchain). Fixed in track-screenshots first, and now fixed in night-loop
-too: the install pattern is removed from ESCAPE_CMDS in `.claude/hooks/gate.ts` and
-`.codex/hooks/gate.ts`, and the docs that listed dependency install as gated
+too: the install pattern is removed from ESCAPE_CMDS in `gate.ts` (at the time twin copies
+under `.claude/hooks/` and `.codex/hooks/`, since merged into `.night-loop/hooks/gate.ts`),
+and the docs that listed dependency install as gated
 (`overnight-build-prd.md` Sec 7, the README gate.ts blueprint, `autonomous-build-runtime.md`
 SENSITIVE.commands, CLAUDE.md, AGENTS.md) are updated to match.
 

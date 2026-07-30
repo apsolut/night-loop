@@ -3,7 +3,7 @@
 Research date: 2026-07-29. Sources: OpenClaw gateway docs, Hermes Agent (Nous Research)
 issue #15400 and reference architecture, ralph-wiggum plugin, loop-engineering writeups,
 Playwright v1.61 docs. Links at the bottom. This doc maps what the field converged on in
-2025-2026 onto NIGHT LOOP's real files (`.claude/hooks/loop.ts`, `lib.ts`,
+2025-2026 onto NIGHT LOOP's real files (`.night-loop/hooks/loop.ts`, `lib.ts`,
 `scripts/night-loop.sh`) and proposes three upgrades.
 
 ## What the world converged on (and where NIGHT LOOP already stands)
@@ -207,7 +207,7 @@ schema-valid; changes applied and facts worth keeping:
 - APPLIED: SessionStart now also emits `initialUserMessage` when ACTIVE exists, so a
   relaunched session self-starts even if the supervisor's tmux send-keys is missed.
   This hardens the crash-relaunch path for free.
-- APPLIED: judge.md gained `effort: high` and `maxTurns: 40` (new subagent frontmatter
+- APPLIED: night-loop-judge.md gained `effort: high` and `maxTurns: 40` (new subagent frontmatter
   fields). `model: opus` remains valid; `fable` is available if judge strength ever
   needs a bump, at the cost of faster limit burn.
 - Hook events that exist now and matter for the upgrades above: SessionEnd (write the

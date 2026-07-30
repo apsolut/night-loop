@@ -1,4 +1,4 @@
-// Shared helpers for NIGHT LOOP hooks. Runs under Bun (bun .claude/hooks/*.ts).
+// Shared helpers for NIGHT LOOP hooks. Runs under Bun (bun .night-loop/hooks/*.ts).
 // No third-party deps on purpose: the safety path must not break on a missing module.
 import { existsSync, mkdirSync, readFileSync, writeFileSync, appendFileSync, rmSync } from "node:fs";
 import { execSync } from "node:child_process";

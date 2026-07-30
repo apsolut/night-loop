@@ -1,6 +1,6 @@
 # Judge and Flake Reliability
 
-> **NIGHT LOOP reconciliation (2026-06).** This underpins NIGHT LOOP's judge. The Stop hook's done-verification (`.claude/hooks/loop.ts`) and the `judge` subagent (`.claude/agents/judge.md`) both rely on the hard-vs-advisory tier split and the reproducibility rule defined here. Still fully current.
+> **NIGHT LOOP reconciliation (2026-06).** This underpins NIGHT LOOP's judge. The Stop hook's done-verification (`.night-loop/hooks/loop.ts`) and the `night-loop-judge` subagent (`.claude/agents/night-loop-judge.md`) both rely on the hard-vs-advisory tier split and the reproducibility rule defined here. Still fully current.
 
 The prior docs build the loop (inner convergence, outer selection), the judge stack, the
 ratchet, and the autonomy shell. All of it rests on one assumption that none of them

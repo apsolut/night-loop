@@ -1,5 +1,5 @@
 ---
-name: judge
+name: night-loop-judge
 description: Verifies a milestone against its acceptance criteria and the harness output. Adversarial, separate context. Invoke to certify a milestone is done. Never let the implementer self-certify.
 tools: Bash, Read, Grep
 model: opus

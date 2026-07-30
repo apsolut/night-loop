@@ -1,15 +1,15 @@
 # PRD: Analytics Dashboard, Autonomous Build
 
-> **NIGHT LOOP reconciliation (2026-06).** This analytics dashboard is one *example target* NIGHT LOOP builds; the generic intake-to-spec flow is `idea-to-product-pipeline.md`, and the runtime is `NIGHT-LOOP.md`. Read every `/goal` reference below as the supervisor plus the Stop hook (`.claude/hooks/loop.ts`): there is no built-in `/goal` loop. The stop condition in Section 3 is enforced by the Stop hook running the harness, not by a built-in. Billing reality: only Claude Code *interactive* uses the flat Max limits; headless and SDK usage is metered. Where this doc and the real files differ, the files win.
+> **NIGHT LOOP reconciliation (2026-06).** This analytics dashboard is one *example target* NIGHT LOOP builds; the generic intake-to-spec flow is `idea-to-product-pipeline.md`, and the runtime is `NIGHT-LOOP.md`. Read every `/goal` reference below as the supervisor plus the Stop hook (`.night-loop/hooks/loop.ts`): there is no built-in `/goal` loop. The stop condition in Section 3 is enforced by the Stop hook running the harness, not by a built-in. Billing reality: only Claude Code *interactive* uses the flat Max limits; headless and SDK usage is metered. Where this doc and the real files differ, the files win.
 
 This document is the contract you (Claude Code) build against and the only definition of "done" that counts. Read it fully before starting and reload the Constraints section at the start of every plan. You are running unattended overnight. A human reviews the digest each morning. The Gates below are where you stop and wait for that human.
 
 ## 0. How to run this
 
 - This PRD lives at `.night-loop/PRD.md`. `CLAUDE.md` points here and is the entry point.
-- The loop runs under the NIGHT LOOP supervisor (`scripts/night-loop.sh`) plus a Stop hook (`.claude/hooks/loop.ts`) that enforces the stop condition in Section 3. There is no built-in `/goal`. The Stop hook runs the harness independently of the agent that wrote the code, so the writer is not the one that decides it is done.
+- The loop runs under the NIGHT LOOP supervisor (`scripts/night-loop.sh`) plus a Stop hook (`.night-loop/hooks/loop.ts`) that enforces the stop condition in Section 3. There is no built-in `/goal`. The Stop hook runs the harness independently of the agent that wrote the code, so the writer is not the one that decides it is done.
 - Gates (Section 7) are enforced by a `PreToolUse` hook that blocks edits to sensitive paths and sensitive commands. When the hook fires, write the request into the digest and stop.
-- Implementation and verification are different subagents (`.claude/agents/implementer`, `.claude/agents/judge`). The judge sees the spec, the artifact, and the harness output. It does not see the implementer's reasoning.
+- Implementation and verification are different subagents (`.claude/agents/implementer`, `.claude/agents/night-loop-judge`). The judge sees the spec, the artifact, and the harness output. It does not see the implementer's reasoning.
 - State lives in git plus `.night-loop/progress.md` plus `.night-loop/decisions/`. You forget between runs; the repo does not. Resume from the last commit and `progress.md`.
 - Running on Claude Code Max, so the budget is generous. That is not a license to thrash. The stuck protocol (Section 10) is what protects the budget, not frugality.
 
@@ -40,7 +40,7 @@ The build is done when ALL of these hold, verifiably:
 2. The ratchet is 100 percent green (Section 5).
 3. Every gated milestone is either human-approved-and-passing or explicitly deferred in `progress.md`.
 
-Encode this in the Stop hook (`.claude/hooks/loop.ts`) as the stop condition. "Done" is a claim until these three are checkable green. Do not declare done on anything weaker.
+Encode this in the Stop hook (`.night-loop/hooks/loop.ts`) as the stop condition. "Done" is a claim until these three are checkable green. Do not declare done on anything weaker.
 
 ## 4. The harness, build this first
 

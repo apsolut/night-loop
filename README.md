@@ -30,14 +30,14 @@ project/
     pre-commit                               ratchet enforcement (fast gates)
   .claude/
     settings.json                            registers the PreToolUse gate hook
-    hooks/
-      gate.ts                                blocks sensitive edits and commands
     agents/
-      judge.md                               the verifier, separate context
+      night-loop-judge.md                    the verifier, separate context
     skills/
       build-doctrine/SKILL.md                conventions, so they are not re-derived
       triage/SKILL.md                        self-extension: grow the backlog from reality
   .night-loop/
+    hooks/
+      gate.ts                                blocks sensitive edits and commands
     PRD.md                                   the contract (use the previous artifact)
     constraints.md                           durable rules, reloaded every plan
     progress.md                              the mutable ledger
@@ -60,7 +60,7 @@ The implementer is the main Claude Code session driven by `CLAUDE.md`. There is 
 You are building the project in `.night-loop/PRD.md`. That PRD is the contract and the only definition of done. Read it fully before acting.
 
 ## How to run
-- The supervisor (`scripts/night-loop.sh`) plus the Stop hook (`.claude/hooks/loop.ts`) keep you looping. Stop condition: PRD Section 3 (all non-gated milestones pass, ratchet 100% green, gated items approved or deferred).
+- The supervisor (`scripts/night-loop.sh`) plus the Stop hook (`.night-loop/hooks/loop.ts`) keep you looping. Stop condition: PRD Section 3 (all non-gated milestones pass, ratchet 100% green, gated items approved or deferred).
 - A separate model checks the stop condition each turn. You do not declare done yourself.
 
 ## Non-negotiables (full living list in `.night-loop/constraints.md`, reload every plan)
@@ -71,7 +71,7 @@ You are building the project in `.night-loop/PRD.md`. That PRD is the contract a
 - Gates (PRD Section 7) are hard stops. The PreToolUse hook blocks you. Write the request to the digest and stop.
 
 ## Roles
-- You implement. The judge subagent (`.claude/agents/judge.md`) verifies in a separate context.
+- You implement. The judge subagent (`.claude/agents/night-loop-judge.md`) verifies in a separate context.
 - To certify a milestone, invoke the judge. Do not self-certify.
 
 ## State (you forget between runs; the repo does not)
@@ -108,8 +108,8 @@ chmod +x .githooks/pre-commit
 ## 3. TEST THE GATE before you trust it overnight
 This is the file that makes "stop before touching auth" real. Verify it fires:
 
-echo '{"tool_name":"Bash","tool_input":{"command":"rm -rf /tmp/x"}}' | bun .claude/hooks/gate.ts; echo "exit: $?"
-echo '{"tool_name":"Write","tool_input":{"file_path":"src/auth/login.ts"}}' | bun .claude/hooks/gate.ts; echo "exit: $?"
+echo '{"tool_name":"Bash","tool_input":{"command":"rm -rf /tmp/x"}}' | bun .night-loop/hooks/gate.ts; echo "exit: $?"
+echo '{"tool_name":"Write","tool_input":{"file_path":"src/auth/login.ts"}}' | bun .night-loop/hooks/gate.ts; echo "exit: $?"
 
 Both must print a GATED message and exit 2. If either exits 0 the gate is not working and you must not run unattended. Verify the hook schema and block mechanism against your current Claude Code version. This is the one file that must be correct.
 
@@ -121,7 +121,7 @@ A flaky ratchet reverts good work and lies to the planner, and the cost scales w
 ## 5. Start the loop
 bash scripts/night-loop.sh
 # The supervisor arms the loop and launches an interactive `claude` session in tmux.
-# A Stop hook (.claude/hooks/loop.ts) runs the harness after every turn and forces
+# A Stop hook (.night-loop/hooks/loop.ts) runs the harness after every turn and forces
 # continuation until PRD Section 3 holds (all non-gated milestones pass, ratchet green,
 # gated items approved or deferred), then halts with the MVP ready. There is no `/goal`.
 
@@ -188,7 +188,7 @@ Fast gates only, and deterministic by design. The expensive AND noisy layers (fu
       {
         "matcher": "Edit|Write|MultiEdit|Bash",
         "hooks": [
-          { "type": "command", "command": "bun .claude/hooks/gate.ts" }
+          { "type": "command", "command": "bun .night-loop/hooks/gate.ts" }
         ]
       }
     ]
@@ -200,7 +200,7 @@ Verify this schema against your current Claude Code version. Hooks exist, but th
 
 ---
 
-### .claude/hooks/gate.ts
+### .night-loop/hooks/gate.ts
 
 ```typescript
 // PreToolUse hook. Receives the tool call on stdin. Blocks sensitive edits and commands.
@@ -250,7 +250,7 @@ process.exit(0);
 
 ---
 
-### .claude/agents/judge.md
+### .claude/agents/night-loop-judge.md
 
 ```markdown
 ---

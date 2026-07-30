@@ -25,7 +25,7 @@ scripts/night-loop.sh (supervisor, in tmux)
    |  launches ->  claude  (interactive, one session)
    |                 |  does a turn
    |                 v
-   |            Stop hook: .claude/hooks/loop.ts
+   |            Stop hook: .night-loop/hooks/loop.ts
    |                 |  not done?  -> {"decision":"block","reason":"...next..."}  (keeps going)
    |                 |  done?      -> writes HALTED, lets Claude stop
    |  <- polls HALTED / detects session end / detects stall, then resumes or stops
@@ -45,12 +45,12 @@ scripts/night-loop.sh (supervisor, in tmux)
 |---|---|
 | `CLAUDE.md` | The agent's operating protocol (entry point) |
 | `.claude/settings.json` | Registers the Stop / SessionStart / PreToolUse hooks + permission deny rules |
-| `.claude/hooks/loop.ts` | Stop hook = the outer loop and independent done-verifier |
-| `.claude/hooks/resume.ts` | SessionStart hook = injects progress + git state |
-| `.claude/hooks/gate.ts` | PreToolUse hook = denies escape commands, flags security surfaces for morning review (never halts) |
-| `.claude/hooks/lib.ts` | Shared helpers (markers, harness runners) |
-| `.claude/agents/judge.md` | The separate-context verifier for milestone acceptance |
-| `.claude/skills/intake/SKILL.md` | The attended front half: 5 questions + research to backlog.yaml |
+| `.night-loop/hooks/loop.ts` | Stop hook = the outer loop and independent done-verifier |
+| `.night-loop/hooks/resume.ts` | SessionStart hook = injects progress + git state |
+| `.night-loop/hooks/gate.ts` | PreToolUse hook = denies escape commands, flags security surfaces for morning review (never halts) |
+| `.night-loop/hooks/lib.ts` | Shared helpers (markers, harness runners) |
+| `.claude/agents/night-loop-judge.md` | The separate-context verifier for milestone acceptance |
+| `.claude/skills/night-loop-intake/SKILL.md` | The attended front half: 5 questions + research to backlog.yaml |
 | `scripts/night-loop.sh` | The tmux supervisor (launch, resume, backoff, halt) |
 | `Dockerfile` | The isolated jail |
 | `.night-loop/backlog.yaml` | The contract (M0 + the research-derived spec) |
@@ -79,9 +79,9 @@ docker run --rm -it \
 
 Test the hook BEFORE trusting it overnight:
 ```bash
-echo '{"tool_name":"Bash","tool_input":{"command":"rm -rf /tmp/x"}}' | bun .claude/hooks/gate.ts
-echo '{"tool_name":"Bash","tool_input":{"command":"git push origin main"}}' | bun .claude/hooks/gate.ts
-echo '{"tool_name":"Write","tool_input":{"file_path":"src/auth/login.ts"}}' | bun .claude/hooks/gate.ts
+echo '{"tool_name":"Bash","tool_input":{"command":"rm -rf /tmp/x"}}' | bun .night-loop/hooks/gate.ts
+echo '{"tool_name":"Bash","tool_input":{"command":"git push origin main"}}' | bun .night-loop/hooks/gate.ts
+echo '{"tool_name":"Write","tool_input":{"file_path":"src/auth/login.ts"}}' | bun .night-loop/hooks/gate.ts
 ```
 The first two must emit `permissionDecision: "deny"` (escape commands). The third must emit
 `permissionDecision: "allow"` with a review note (security code is built and tested overnight, not

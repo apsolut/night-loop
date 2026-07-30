@@ -12,21 +12,21 @@
       {
         "matcher": "Edit|Write|MultiEdit|Bash",
         "hooks": [
-          { "type": "command", "command": "bun ${CLAUDE_PROJECT_DIR}/.claude/hooks/gate.ts" }
+          { "type": "command", "command": "bun ${CLAUDE_PROJECT_DIR}/.night-loop/hooks/gate.ts" }
         ]
       }
     ],
     "Stop": [
       {
         "hooks": [
-          { "type": "command", "command": "bun ${CLAUDE_PROJECT_DIR}/.claude/hooks/loop.ts" }
+          { "type": "command", "command": "bun ${CLAUDE_PROJECT_DIR}/.night-loop/hooks/loop.ts" }
         ]
       }
     ],
     "SessionStart": [
       {
         "hooks": [
-          { "type": "command", "command": "bun ${CLAUDE_PROJECT_DIR}/.claude/hooks/resume.ts" }
+          { "type": "command", "command": "bun ${CLAUDE_PROJECT_DIR}/.night-loop/hooks/resume.ts" }
         ]
       }
     ]

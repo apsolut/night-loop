@@ -6,7 +6,7 @@ you working between turns; you do not wait for a human except at gates.
 
 ## First run (intake): when the backlog is empty
 If `.night-loop/backlog.yaml` contains only M0 (no derived milestones), you are at INTAKE, not
-build. When the user tells you what they want to build, run the `intake` skill: ask the five
+build. When the user tells you what they want to build, run the `night-loop-intake` skill: ask the five
 questions, research how the established players do it, and write a checkable `backlog.yaml`.
 Get the user's approval, then tell them to arm the loop with `bash scripts/night-loop.sh`. Do
 not start coding until the backlog is approved. This step is attended; the build that follows
@@ -40,7 +40,7 @@ is not.
 - No em dashes in any generated prose, docs, or comments.
 
 ## Roles
-- You implement. The judge subagent (`.Codex/agents/judge.md`) certifies in a separate
+- You implement. The judge subagent (`.codex/agents/night-loop-judge.toml`) certifies in a separate
   context and does not see your reasoning. Invoke it to accept a milestone; do not self-certify.
 
 ## Gates and shelving (do not wait for a human overnight)

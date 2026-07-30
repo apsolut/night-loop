@@ -1,5 +1,5 @@
 ---
-name: intake
+name: night-loop-intake
 description: Turn an idea into a checkable .night-loop/backlog.yaml via a few questions plus grounded competitor research. Run once at the start of a new project, before arming the NIGHT LOOP. This is the front half of idea-to-product-pipeline.md.
 ---
 

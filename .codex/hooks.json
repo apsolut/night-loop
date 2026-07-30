@@ -6,7 +6,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bun 'D:\\sites\\git\\night-loop\\.codex\\hooks\\gate.ts'"
+            "command": "bun 'D:\\sites\\git\\night-loop\\.night-loop\\hooks\\gate.ts'"
           }
         ]
       }
@@ -16,7 +16,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bun 'D:\\sites\\git\\night-loop\\.codex\\hooks\\resume.ts'"
+            "command": "bun 'D:\\sites\\git\\night-loop\\.night-loop\\hooks\\resume.ts'"
           }
         ]
       }
@@ -26,7 +26,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bun 'D:\\sites\\git\\night-loop\\.codex\\hooks\\loop.ts'"
+            "command": "bun 'D:\\sites\\git\\night-loop\\.night-loop\\hooks\\loop.ts'"
           }
         ]
       }

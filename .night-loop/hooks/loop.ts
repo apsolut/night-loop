@@ -44,7 +44,7 @@ if (!ratchet.allGreen) {
 blockStop(
   `Ratchet green (step ${step}/${maxSteps()}). Keep building, do not wait for a human. Pick the next ` +
   `buildable milestone in .night-loop/backlog.yaml (dependencies first, M0 first), write the smallest diff, ` +
-  `invoke the judge to certify it against seeded data, update .night-loop/progress.md, add a one-line decision. ` +
+  `invoke the night-loop-judge subagent to certify it against seeded data, update .night-loop/progress.md, add a one-line decision. ` +
   `Build gated:true milestones (auth, billing) too, but ONLY against TEST credentials and seeded data, never ` +
   `real systems, and note the security surface in the digest for morning review. SHELVE any milestone you ` +
   `cannot build or test without real ground truth (gated: hard-block, e.g. real data ingestion): record it ` +

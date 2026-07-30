@@ -42,7 +42,7 @@ stall=0
 
 while [ -f "$NL/ACTIVE" ]; do
   # Halt requested by the Stop hook (done / blocked / budget): stop cleanly. A single gated
-  # milestone never halts; the loop shelves it and keeps building (see .claude/hooks/loop.ts).
+  # milestone never halts; the loop shelves it and keeps building (see .night-loop/hooks/loop.ts).
   if [ -f "$NL/HALTED" ]; then
     reason="$(cat "$NL/HALTED" 2>/dev/null)"
     echo "[night-loop] HALTED: $reason"
