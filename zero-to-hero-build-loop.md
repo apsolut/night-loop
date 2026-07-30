@@ -1,6 +1,6 @@
 # Zero-to-Hero Agentic Build Loop
 
-> **NIGHT LOOP reconciliation (2026-06).** This is the conceptual core of **NIGHT LOOP**, implemented on the **Claude Code Max CLI** (interactive) driven by a **Stop hook** (real files in `.claude/`, `scripts/night-loop.sh`, `NIGHT-LOOP.md`). The Substrate notes below favor the Claude Agent SDK; the project chose the Claude Code Max CLI plus a Stop hook instead, because only *interactive* Claude Code uses the flat Max limits (the SDK and headless `claude -p` draw a separate metered credit from 2026-06-15). The two-loop model, judge stack, and ratchet here all still hold; see also `judge-and-flake-reliability.md`.
+> **NIGHT LOOP reconciliation (2026-06).** This is the conceptual core of **NIGHT LOOP**, implemented on the **Claude Code Max CLI** (interactive) driven by a **Stop hook** (real files in `.night-loop/hooks/`, `.claude/`, `scripts/night-loop.sh`, `NIGHT-LOOP.md`). The Substrate notes below favor the Claude Agent SDK; the project chose the Claude Code Max CLI plus a Stop hook instead, because only *interactive* Claude Code uses the flat Max limits (the SDK and headless `claude -p` draw a separate metered credit from 2026-06-15). The two-loop model, judge stack, and ratchet here all still hold; see also `judge-and-flake-reliability.md`.
 
 An agent that codes a dashboard from nothing to feature-complete-and-optimized, autonomously, in loops. The loop mechanics are trivial. The thing that makes it *converge* instead of *thrash* is the judge and the ratchet. This document is mostly about those.
 

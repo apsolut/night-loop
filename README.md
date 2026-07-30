@@ -6,7 +6,7 @@
 
 Autonomous overnight coding agent on the Claude Code Max CLI. Answer about five questions, go to
 sleep, and wake up to a built-and-tested MVP. Driven by a Stop hook, jailed in Docker, fed by a
-research-to-spec intake. See `NIGHT-LOOP.md` to run it.
+research-to-spec intake.
 
 > **Safety, read before running.** NIGHT LOOP runs an AI agent **unattended, with permissions
 > bypassed**: it writes and executes its own code and shell commands for hours without asking.
@@ -15,9 +15,76 @@ research-to-spec intake. See `NIGHT-LOOP.md` to run it.
 > You are responsible for what it does on your machine. This is early, largely untested WIP; treat
 > it as a reference design, not a turnkey product.
 
-## Complete Starter Kit
+## Quick start
 
-> **NIGHT LOOP reconciliation (2026-06).** The running system is **NIGHT LOOP**, an autonomous build loop on the **Claude Code Max CLI** (interactive), driven by a **Stop hook**. The real implementation now lives in `.claude/`, `scripts/night-loop.sh`, and `NIGHT-LOOP.md`; this starter kit is the conceptual version. Billing reality: only Claude Code *interactive* uses the flat Max limits; headless `claude -p` and the Agent SDK draw a separate metered credit (from 2026-06-15) and API-key agents bill pay-go. This blueprint predates the real files: the loop is the Stop hook plus `night-loop.sh`, not `/goal` (no built-in `/goal` exists), and the gate uses the current `hookSpecificOutput` / `permissionDecision` schema, not `{"decision":"block"}`. Where this doc and the real files differ, the files win.
+1. **Intake (attended).** In your project repo, run `claude` and say what you want to build.
+   The `night-loop-intake` skill asks ~5 questions, researches how established players do it,
+   and writes a checkable `.night-loop/backlog.yaml`. Approve it before anything is built.
+2. **Test the gate before trusting it overnight:**
+   ```bash
+   echo '{"tool_name":"Bash","tool_input":{"command":"git push origin main"}}' | bun .night-loop/hooks/gate.ts
+   ```
+   It must emit `permissionDecision: "deny"`. If not, do not run unattended; check the hook
+   schema against your Claude Code version (details in [NIGHT-LOOP.md](NIGHT-LOOP.md)).
+3. **Arm the loop in the jail:**
+   ```bash
+   docker build -t night-loop .
+   docker run --rm -it -v "$PWD:/work" -v "$HOME/.claude:/home/loop/.claude" --cap-drop ALL night-loop
+   # -> scripts/night-loop.sh arms the loop and drives an interactive claude session in tmux
+   ```
+4. **Morning.** Read the latest digest in `.night-loop/runs/`, review the Blocked list and the
+   security-surface REVIEW notes, then cut over or re-arm.
+
+Full run instructions, state markers, halt reasons, and the honest caveats:
+**[NIGHT-LOOP.md](NIGHT-LOOP.md)**.
+
+## Documentation map
+
+Read in this order if you are new; the first three are the running system, the rest is design.
+
+| Doc | What it covers |
+|---|---|
+| [NIGHT-LOOP.md](NIGHT-LOOP.md) | **Start here.** Operator guide: how to run, markers, halt reasons, billing and caveats |
+| [CLAUDE.md](CLAUDE.md) | The agent's operating protocol, what Claude reads each session ([AGENTS.md](AGENTS.md) is the Codex twin) |
+| [HANDOFF.md](HANDOFF.md) | Current state of both repos, verified facts, known bugs, open items |
+| [judge-and-flake-reliability.md](judge-and-flake-reliability.md) | Why the ratchet splits into hard vs advisory tiers; the reproducibility rule behind every revert |
+| [idea-to-product-pipeline.md](idea-to-product-pipeline.md) | The front half: intake questions plus grounded research to a checkable spec |
+| [idea-to-product-example.md](idea-to-product-example.md) | Worked example of that intake on a sample product |
+| [overnight-build-prd.md](overnight-build-prd.md) | Example PRD target (an analytics dashboard) with milestones and gates |
+| [autonomous-build-runtime.md](autonomous-build-runtime.md) | Conceptual runtime design the real hooks descend from |
+| [zero-to-hero-build-loop.md](zero-to-hero-build-loop.md) | Conceptual core: the two-loop model, judge stack, and ratchet |
+| [ideas/](ideas/) | Captured ideas not yet built (heartbeats, task queue, device matrix) |
+
+The design docs carry a "NIGHT LOOP reconciliation" banner: where they and the real files
+differ, the files win.
+
+## What lands in a project
+
+The loop owns one namespace plus a small, prefixed Claude Code footprint:
+
+```
+your-project/
+  CLAUDE.md                        the agent's operating protocol
+  .night-loop/                     everything the loop owns
+    hooks/                           loop.ts (Stop), gate.ts (PreToolUse), resume.ts (SessionStart), lib.ts
+    backlog.yaml                     the contract          (committed)
+    progress.md                      the ledger            (committed)
+    constraints.md                   durable rules         (committed)
+    decisions/                       one file per choice   (committed)
+    state/ · runs/ · intake.md       runtime state         (gitignored)
+  .claude/
+    settings.json                    registers the three hooks
+    agents/night-loop-judge.md       the separate-context verifier
+    skills/night-loop-intake/        the attended front half
+  scripts/night-loop.sh            tmux supervisor (launch, resume, backoff, halt)
+  Dockerfile                       the jail
+```
+
+---
+
+## The starter-kit blueprint (conceptual reference)
+
+> **NIGHT LOOP reconciliation (2026-06).** The running system is **NIGHT LOOP**, an autonomous build loop on the **Claude Code Max CLI** (interactive), driven by a **Stop hook**. The real implementation now lives in `.night-loop/hooks/`, `.claude/`, `scripts/night-loop.sh`, and `NIGHT-LOOP.md`; this starter kit is the conceptual version. Billing reality: only Claude Code *interactive* uses the flat Max limits; headless `claude -p` and the Agent SDK draw a separate metered credit (from 2026-06-15) and API-key agents bill pay-go. This blueprint predates the real files: the loop is the Stop hook plus `night-loop.sh`, not `/goal` (no built-in `/goal` exists), and the gate uses the current `hookSpecificOutput` / `permissionDecision` schema, not `{"decision":"block"}`. Where this doc and the real files differ, the files win.
 
 Drop these into one repo. This is the control plane for the loop. The agent builds the actual app and its harness in M0/M1. These files are the rails (gates, ratchet, judge separation, durable state) and the contract they enforce.
 
@@ -254,7 +321,7 @@ process.exit(0);
 
 ```markdown
 ---
-name: judge
+name: night-loop-judge
 description: Verifies a milestone against its acceptance criteria and the harness output. Adversarial. Invoke to certify a milestone is done. Never let the implementer self-certify.
 tools: Bash, Read, Grep
 model: opus
