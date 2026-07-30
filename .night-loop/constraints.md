@@ -3,7 +3,7 @@
 Reload at the start of every plan. Human feedback at checkpoints appends here, dated.
 
 - Smallest blast radius. Fewest files that satisfy the milestone.
-- No new dependencies without writing why in `.apsolut-loop/decisions/` first.
+- No new dependencies without writing why in `.night-loop/decisions/` first.
 - Every "data persisted" claim is asserted against the DB. Never assume a write succeeded.
 - Never delete or weaken a test to go green. Quarantining a flaky spec (out of the hard tier
   until determinized) is allowed and is not weakening.
@@ -14,7 +14,7 @@ Reload at the start of every plan. Human feedback at checkpoints appends here, d
   fonts bundled with `document.fonts.ready` awaited, fixed viewport, no real network.
 - Gates (auth, billing, payment, stripe, .env, migration, schema) are hard stops enforced by the
   PreToolUse hook. The loop halts; a human approves.
-- Architectural choices get a one-line entry in `.apsolut-loop/decisions/`.
+- Architectural choices get a one-line entry in `.night-loop/decisions/`.
 - No em dashes in any generated prose, docs, or comments.
 
 ## Project conventions (fill before first run)

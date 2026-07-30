@@ -43,12 +43,12 @@ if (!ratchet.allGreen) {
 // 6. Green and not done -> advance. Never wait for a human; shelve what you cannot build.
 blockStop(
   `Ratchet green (step ${step}/${maxSteps()}). Keep building, do not wait for a human. Pick the next ` +
-  `buildable milestone in .apsolut-loop/backlog.yaml (dependencies first, M0 first), write the smallest diff, ` +
-  `invoke the judge to certify it against seeded data, update .apsolut-loop/progress.md, add a one-line decision. ` +
+  `buildable milestone in .night-loop/backlog.yaml (dependencies first, M0 first), write the smallest diff, ` +
+  `invoke the judge to certify it against seeded data, update .night-loop/progress.md, add a one-line decision. ` +
   `Build gated:true milestones (auth, billing) too, but ONLY against TEST credentials and seeded data, never ` +
   `real systems, and note the security surface in the digest for morning review. SHELVE any milestone you ` +
   `cannot build or test without real ground truth (gated: hard-block, e.g. real data ingestion): record it ` +
-  `under Blocked in .apsolut-loop/progress.md and move to the next. When every non-gated milestone is accepted and ` +
-  `the full harness will pass, create .apsolut-loop/state/CLAIM_DONE and stop. If the ONLY work left is ` +
-  `blocked or unbuildable, create .apsolut-loop/state/ALL_BLOCKED and stop.`
+  `under Blocked in .night-loop/progress.md and move to the next. When every non-gated milestone is accepted and ` +
+  `the full harness will pass, create .night-loop/state/CLAIM_DONE and stop. If the ONLY work left is ` +
+  `blocked or unbuildable, create .night-loop/state/ALL_BLOCKED and stop.`
 );

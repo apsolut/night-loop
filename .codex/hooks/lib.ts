@@ -6,7 +6,7 @@ import { execSync } from "node:child_process";
 export const ROOT = process.env.CLAUDE_PROJECT_DIR || process.cwd();
 // The loop's own namespace, separate from the .apsolut seshat vault. Overridable so a
 // host project can relocate it without editing hooks.
-export const LOOP_DIR = process.env.NIGHT_LOOP_DIR || ".apsolut-loop";
+export const LOOP_DIR = process.env.NIGHT_LOOP_DIR || ".night-loop";
 const NL = `${ROOT}/${LOOP_DIR}/state`;
 
 function ensureDir() {

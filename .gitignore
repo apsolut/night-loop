@@ -13,9 +13,9 @@ node_modules/
 .claude/settings.local.json
 
 # NIGHT LOOP runtime state (generated per run, not source)
-.apsolut-loop/state/
-.apsolut-loop/runs/
-.apsolut-loop/intake.md
+.night-loop/state/
+.night-loop/runs/
+.night-loop/intake.md
 
 # Build and test output
 dist/

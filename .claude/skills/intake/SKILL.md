@@ -1,6 +1,6 @@
 ---
 name: intake
-description: Turn an idea into a checkable .apsolut-loop/backlog.yaml via a few questions plus grounded competitor research. Run once at the start of a new project, before arming the NIGHT LOOP. This is the front half of idea-to-product-pipeline.md.
+description: Turn an idea into a checkable .night-loop/backlog.yaml via a few questions plus grounded competitor research. Run once at the start of a new project, before arming the NIGHT LOOP. This is the front half of idea-to-product-pipeline.md.
 ---
 
 # Intake
@@ -10,7 +10,7 @@ behavioral, seed-checkable acceptance criteria, so the NIGHT LOOP has a real con
 this interactively (attended). It is the one human touch before days of autonomous building.
 
 ## 1. Ask the five questions (only what research cannot answer)
-Ask conversationally, one at a time, and record the answers in `.apsolut-loop/intake.md`:
+Ask conversationally, one at a time, and record the answers in `.night-loop/intake.md`:
 1. The idea in one line.
 2. The wedge: why this instead of the incumbent. A pure clone has no reason to exist; this is
    the most important answer and research will never produce it.
@@ -21,7 +21,7 @@ Ask conversationally, one at a time, and record the answers in `.apsolut-loop/in
 
 ## 1b. Front-load the owner decisions (so the night never has to ask)
 The build runs gate-free only if the human-owned calls are made now, while the user is awake.
-Before research, pin down and record in `.apsolut-loop/intake.md`: the data source (or that it is a
+Before research, pin down and record in `.night-loop/intake.md`: the data source (or that it is a
 hard-block to defer), the auth approach, the billing model, and the wedge. Have the user provide
 TEST credentials (test Stripe keys, a throwaway DB) and confirm seeded fixtures are the only data
 the build touches. With these set, auth/billing/schema get built and tested overnight against
@@ -38,14 +38,14 @@ fakes and nothing waits for approval.
 ## 3. Derive the spec
 - The MVP slice is the commonly-shipped capabilities filtered through the wedge and the one
   job. Defer everything else. Do not try to match the incumbent's full product.
-- Write `.apsolut-loop/backlog.yaml`: milestones in dependency order, M0 (harness) first, each with
+- Write `.night-loop/backlog.yaml`: milestones in dependency order, M0 (harness) first, each with
   behavioral acceptance criteria checkable against seeded data ("the number on screen equals
   the number computed from the seed", not "implemented").
 - Mark `gated: true` for security surfaces (auth, billing): the loop BUILDS and TESTS these
   overnight against test credentials and flags them for a morning security review; it does not
   skip them. Mark `gated: hard-block` for milestones with no test ground truth (e.g. ingesting
   real live data): the loop SHELVES these to Blocked rather than fabricating data to pass.
-- Update the `## Next` section of `.apsolut-loop/progress.md`, and seed `.apsolut-loop/constraints.md`
+- Update the `## Next` section of `.night-loop/progress.md`, and seed `.night-loop/constraints.md`
   project-conventions section from the hard constraints.
 
 ## 4. Spec-critic pass

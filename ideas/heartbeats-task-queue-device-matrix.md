@@ -56,8 +56,8 @@ Today NIGHT LOOP has one mode: build `backlog.yaml` to MVP. Add a second arming 
 for existing projects: the operator writes 3-4 task files before bed, the loop drains
 the queue.
 
-- Layout: `.apsolut-loop/tasks/queue/NN-slug.md`, `.apsolut-loop/tasks/done/`,
-  `.apsolut-loop/tasks/failed/`. Each task file: goal, blast radius (files it may touch),
+- Layout: `.night-loop/tasks/queue/NN-slug.md`, `.night-loop/tasks/done/`,
+  `.night-loop/tasks/failed/`. Each task file: goal, blast radius (files it may touch),
   acceptance criteria the judge can check, and `max_attempts: 2`.
 - Arming: `night-loop.sh --tasks` writes a `TASK_MODE` marker next to `ACTIVE`.
 - `loop.ts` branch: when `TASK_MODE` exists, the continuation instruction becomes
@@ -81,9 +81,9 @@ blind-relaunches up to 200 times with the same kickoff. Upgrade it to the
 Hermes-style state-inspecting heartbeat:
 
 - Progress signal: watch STEP AND `git rev-parse HEAD` AND the mtime of
-  `.apsolut-loop/progress.md`. Any of the three moving means alive. STEP alone misses
+  `.night-loop/progress.md`. Any of the three moving means alive. STEP alone misses
   in-turn progress; commits alone miss long red-fixing turns.
-- Heartbeat state file `.apsolut-loop/state/HEARTBEAT.json`: `{ lastTick, lastStep,
+- Heartbeat state file `.night-loop/state/HEARTBEAT.json`: `{ lastTick, lastStep,
   lastCommit, consecutiveStalls, lastAction, note }`. Written every supervisor tick.
   This is also the morning-readable "what happened at 3am" record.
 - Diagnose before restart: on a stall, before relaunching, run a diagnostic pass over
@@ -156,7 +156,7 @@ The agent-facing loop (this is the part that makes it self-fixing):
    (`playwright test path/to.spec.ts --project=mobile-iphone`), repeat.
 
 Fix-or-update policy (the visual analog of "never weaken a test to go green"; add to
-`.apsolut-loop/constraints.md` when this ships):
+`.night-loop/constraints.md` when this ships):
 
 - Update the baseline ONLY when the diff is a direct, intended consequence of the
   current task's code changes (the diff region maps to files in the current change

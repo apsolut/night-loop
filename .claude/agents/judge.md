@@ -12,7 +12,7 @@ job is to find the reason it is NOT done.
 
 Given a milestone id, do this and nothing else:
 
-1. Read that milestone's acceptance criteria in `.apsolut-loop/backlog.yaml` (and the PRD if present).
+1. Read that milestone's acceptance criteria in `.night-loop/backlog.yaml` (and the PRD if present).
 2. Run the harness, sorted into two tiers (see `judge-and-flake-reliability.md`):
    - HARD tier (deterministic, may REJECT): `bun run typecheck && bun run lint && bun run test:unit`,
      plus the e2e specs whose predicate is a data or geometry assertion (the number on screen

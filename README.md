@@ -37,7 +37,7 @@ project/
     skills/
       build-doctrine/SKILL.md                conventions, so they are not re-derived
       triage/SKILL.md                        self-extension: grow the backlog from reality
-  .apsolut-loop/
+  .night-loop/
     PRD.md                                   the contract (use the previous artifact)
     constraints.md                           durable rules, reloaded every plan
     progress.md                              the mutable ledger
@@ -57,13 +57,13 @@ The implementer is the main Claude Code session driven by `CLAUDE.md`. There is 
 ```markdown
 # CLAUDE.md
 
-You are building the project in `.apsolut-loop/PRD.md`. That PRD is the contract and the only definition of done. Read it fully before acting.
+You are building the project in `.night-loop/PRD.md`. That PRD is the contract and the only definition of done. Read it fully before acting.
 
 ## How to run
 - The supervisor (`scripts/night-loop.sh`) plus the Stop hook (`.claude/hooks/loop.ts`) keep you looping. Stop condition: PRD Section 3 (all non-gated milestones pass, ratchet 100% green, gated items approved or deferred).
 - A separate model checks the stop condition each turn. You do not declare done yourself.
 
-## Non-negotiables (full living list in `.apsolut-loop/constraints.md`, reload every plan)
+## Non-negotiables (full living list in `.night-loop/constraints.md`, reload every plan)
 - Smallest blast radius. Fewest files that satisfy the milestone.
 - Never delete or weaken a test to go green.
 - Every "data persisted" claim is asserted against the DB, never assumed.
@@ -75,9 +75,9 @@ You are building the project in `.apsolut-loop/PRD.md`. That PRD is the contract
 - To certify a milestone, invoke the judge. Do not self-certify.
 
 ## State (you forget between runs; the repo does not)
-- Contract: `.apsolut-loop/PRD.md` (spec, do not edit to make work easier)
-- Ledger: `.apsolut-loop/progress.md` (done, doing, next) - update after every accepted milestone
-- Decisions: `.apsolut-loop/decisions/` - one file per choice, so it is not re-litigated
+- Contract: `.night-loop/PRD.md` (spec, do not edit to make work easier)
+- Ledger: `.night-loop/progress.md` (done, doing, next) - update after every accepted milestone
+- Decisions: `.night-loop/decisions/` - one file per choice, so it is not re-litigated
 - Resume: read the last commit and `progress.md`, continue from there
 
 ## Harness (build M0 first; nothing is verifiable without it)
@@ -264,11 +264,11 @@ You are the verifier. You did not write this code and you have no stake in it pa
 
 Given a milestone id, do this and nothing else:
 
-1. Read that milestone's acceptance criteria in `.apsolut-loop/PRD.md`.
+1. Read that milestone's acceptance criteria in `.night-loop/PRD.md`.
 2. Run the harness for it, sorted into two tiers (see `judge-and-flake-reliability.md`):
    - HARD tier (deterministic, may REJECT): bun run typecheck && bun run lint && bun run test:unit, plus the e2e specs whose predicate is a data or geometry assertion (the number on screen equals the number computed from the seed; an element's boundingBox is where it should be).
    - ADVISORY tier (noisy, may BLOCK forward acceptance, never triggers a revert): bun run test:screenshot (pixel diff), bun run perf (M10), and the M11 rubric.
-   - For M11: evaluate the rendered page against `.apsolut-loop/rubrics/landing.md` at temperature 0, with a pinned model id, structured per-criterion PASS/FAIL, k-run quorum (a split verdict escalates to the human, it does not pass or fail unilaterally), and only after the calibration golden-set passes. This verdict is advisory.
+   - For M11: evaluate the rendered page against `.night-loop/rubrics/landing.md` at temperature 0, with a pinned model id, structured per-criterion PASS/FAIL, k-run quorum (a split verdict escalates to the human, it does not pass or fail unilaterally), and only after the calibration golden-set passes. This verdict is advisory.
 3. For each criterion, state PASS or FAIL with the specific evidence: the test name, the asserted value vs expected, the console output. A criterion with no test proving it is a FAIL, not a pass by assumption.
 4. Check the ratchet for reproducible regressions only. Did any previously-green HARD-tier spec red? Before treating it as a regression, confirm it is reproducible: it must fail on retry on this diff AND have passed on the unchanged baseline. A non-reproducible red is flake, not a regression: do NOT reject on it, do NOT diagnose against it, flag the spec for quarantine. A confirmed reproducible HARD-tier regression REJECTS the milestone regardless of its own criteria. An ADVISORY-tier failure blocks forward acceptance and is surfaced in the digest, but never reverts already-green work.
 5. Verdict: ACCEPT only if every criterion is PASS by evidence and the HARD tier is green with no reproducible regression. A failing ADVISORY layer means BLOCK-AND-SURFACE, not silent accept and not revert. Otherwise REJECT with the precise, reproducible failure so the implementer can act.
@@ -305,7 +305,7 @@ Ground truth over plausibility. "Persisted" is proven by querying the DB. "Shows
 The suite only grows. Never delete or weaken a test to pass. A *reproducible* red ratchet means revert, not edit-the-test. A non-reproducible red (fails on retry but the unchanged baseline was green) is flake, not a regression: quarantine the spec, do not revert and do not diagnose against it. Quarantine relocates an untrustworthy signal out of the hard tier until it is determinized; it weakens nothing. See `judge-and-flake-reliability.md`.
 
 ## Decisions
-Every architectural choice gets a one-line entry in `.apsolut-loop/decisions/` with the date and the why. Next run reads it instead of re-deciding.
+Every architectural choice gets a one-line entry in `.night-loop/decisions/` with the date and the why. Next run reads it instead of re-deciding.
 
 ## When stuck
 Three attempts at the same failure means stop. Decompose or escalate to the digest. Do not produce diffs that move the signals without converging.
@@ -326,8 +326,8 @@ description: Daily discovery. Reads recent failures, regressions, and gaps and a
 Grow the backlog from reality, not from yesterday's assumptions.
 
 1. Run the full harness: bun run typecheck && bun run lint && bun run test:unit && bun run test:e2e
-2. Read `.apsolut-loop/progress.md` for deferred and blocked items.
-3. For each failure, regression, or gap, append a milestone under "Discovered" in `.apsolut-loop/progress.md` with:
+2. Read `.night-loop/progress.md` for deferred and blocked items.
+3. For each failure, regression, or gap, append a milestone under "Discovered" in `.night-loop/progress.md` with:
    - a behavioral acceptance criterion (checkable, not "fix X")
    - dependencies
    - a gated flag if it touches auth, billing, schema, or external writes
@@ -337,7 +337,7 @@ Grow the backlog from reality, not from yesterday's assumptions.
 
 ---
 
-### .apsolut-loop/constraints.md
+### .night-loop/constraints.md
 
 ```markdown
 # Constraints
@@ -350,7 +350,7 @@ Reload at the start of every plan. Human feedback at checkpoints appends here.
 - Every "data persisted" claim is asserted against the DB.
 - Gates (PRD Section 7) are hard stops enforced by the PreToolUse hook.
 - No em dashes in generated prose, docs, or comments.
-- Architectural choices get a one-line entry in `.apsolut-loop/decisions/`.
+- Architectural choices get a one-line entry in `.night-loop/decisions/`.
 
 ## Project conventions (fill before first run)
 - Frontend framework and charting lib: <FILL>
@@ -363,7 +363,7 @@ Reload at the start of every plan. Human feedback at checkpoints appends here.
 
 ---
 
-### .apsolut-loop/progress.md
+### .night-loop/progress.md
 
 ```markdown
 # Progress Ledger
@@ -401,7 +401,7 @@ Update after every accepted milestone. This is how the next run knows where to r
 
 ---
 
-### .apsolut-loop/decisions/000-template.md
+### .night-loop/decisions/000-template.md
 
 ```markdown
 # <NNN> - <decision title>
@@ -421,7 +421,7 @@ Milestone: <id>
 
 ---
 
-### .apsolut-loop/rubrics/landing.md
+### .night-loop/rubrics/landing.md
 
 ```markdown
 # Landing Page Rubric (M11)
@@ -469,6 +469,6 @@ The single most important change you must read to stay current:
 
 ---
 
-### .apsolut-loop/PRD.md
+### .night-loop/PRD.md
 
 Use the PRD from the previous artifact. Save it at this path. It is the contract `CLAUDE.md` and the judge both read. Everything above enforces it; it is the thing being enforced.

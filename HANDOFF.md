@@ -14,9 +14,10 @@ pointer + the things not yet written down.
 
 ## Repo 1: NIGHT LOOP (`D:\sites\git\night-loop`) - the product
 NOTE 2026-07-29: the loop's state namespace was renamed from `.apsolut/` to `.apsolut-loop/`
-(markers now in `.apsolut-loop/state/`, was `.apsolut/night-loop/`) so it cannot collide with
-the apsolut-seshat vault, which owns `.apsolut/`. Paths below referring to track-screenshots
-still use the OLD layout; that repo has not been migrated.
+so it cannot collide with the apsolut-seshat vault, which owns `.apsolut/`.
+NOTE 2026-07-30: renamed again to `.night-loop/` (markers in `.night-loop/state/`) to match
+the product name; `apsolut` stays as the GitHub namespace only. Paths below referring to
+track-screenshots still use the OLD `.apsolut/` layout; that repo has not been migrated.
 Read these instead of re-deriving:
 - `NIGHT-LOOP.md` - operator guide (run, markers, halt reasons, "run while you sleep" model).
 - `CLAUDE.md` - the agent's operating protocol + first-run intake trigger.

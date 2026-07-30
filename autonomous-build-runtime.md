@@ -23,12 +23,12 @@ stateDiagram-v2
     Halted --> [*]
 ```
 
-## Scaffold (fits your .apsolut-loop layout)
+## Scaffold (fits your .night-loop layout)
 
 ```
 project/
   .claude/                  # skills (generator, judge, planner prompts)
-  .apsolut-loop/
+  .night-loop/
     backlog.yaml            # milestones + acceptance + gated flag (the contract)
     constraints.md          # durable rules from your feedback, reloaded every plan
     decisions/              # why-we-did-it log, one file per accepted milestone
@@ -186,7 +186,7 @@ Run the whole thing in a container or VM, not on your daily-driver machine. An a
 export async function applyFeedback(state: RunState, fb: Feedback) {
   // fb.directives: structured ("deprioritize M7", "stop using lib X", "approve M4")
   // fb.freeText:   parsed by one small LLM call into constraints + backlog edits
-  for (const c of fb.newConstraints) appendTo(".apsolut-loop/constraints.md", c);  // reloaded EVERY plan
+  for (const c of fb.newConstraints) appendTo(".night-loop/constraints.md", c);  // reloaded EVERY plan
   for (const e of fb.backlogEdits)   applyTo(state.backlog, e);
   if (fb.rubricChanges) updateRubric(fb.rubricChanges);
   if (fb.approveGated)  state.backlog.ungate(fb.approveGated);                 // your explicit go-ahead

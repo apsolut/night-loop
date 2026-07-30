@@ -36,7 +36,7 @@ scripts/night-loop.sh (supervisor, in tmux)
 - **State is git + markdown**, not conversation history. A SessionStart hook re-injects
   `progress.md` each (re)launch and, while armed, auto-submits the resume kickoff
   (`initialUserMessage`), so fresh sessions resume cleanly and start working on their own.
-- **Armed, not always-on.** The Stop hook only loops when `.apsolut-loop/state/ACTIVE` exists
+- **Armed, not always-on.** The Stop hook only loops when `.night-loop/state/ACTIVE` exists
   (the supervisor creates it). Opening `claude` here manually is never hijacked.
 
 ## Files
@@ -53,11 +53,11 @@ scripts/night-loop.sh (supervisor, in tmux)
 | `.claude/skills/intake/SKILL.md` | The attended front half: 5 questions + research to backlog.yaml |
 | `scripts/night-loop.sh` | The tmux supervisor (launch, resume, backoff, halt) |
 | `Dockerfile` | The isolated jail |
-| `.apsolut-loop/backlog.yaml` | The contract (M0 + the research-derived spec) |
-| `.apsolut-loop/progress.md` | The ledger |
-| `.apsolut-loop/constraints.md` | Durable rules, reloaded every plan |
+| `.night-loop/backlog.yaml` | The contract (M0 + the research-derived spec) |
+| `.night-loop/progress.md` | The ledger |
+| `.night-loop/constraints.md` | Durable rules, reloaded every plan |
 
-### Markers (`.apsolut-loop/state/`)
+### Markers (`.night-loop/state/`)
 `ACTIVE` armed · `STEP` turn counter · `CLAIM_DONE` agent's done claim (verified by the hook) ·
 `ALL_BLOCKED` only blocked work remains, halt for morning · `REVIEW` security-surface files touched
 (for the morning review) · `HALTED` supervisor-read halt signal (done/blocked/budget).
@@ -100,7 +100,7 @@ against test credentials overnight and listed in `REVIEW` for your morning secur
 
 1. **Billing.** Interactive Max stays flat but is not infinite: you will hit the 5-hour rolling
    window and weekly caps. The loop pauses and the supervisor resumes after reset. That pause is
-   accepted by design: decision 001 (`.apsolut-loop/decisions/`) rules out headless `claude -p`,
+   accepted by design: decision 001 (`.night-loop/decisions/`) rules out headless `claude -p`,
    the Agent SDK, and API keys, because they bill metered. On flat limits the worst case is a
    pause, never a bill.
 2. **Rate-limit at the prompt is the rough edge.** If a turn errors on a rate limit, the
