@@ -1,7 +1,7 @@
 // Shared helpers for NIGHT LOOP hooks. Runs under Bun (bun .night-loop/hooks/*.ts).
 // No third-party deps on purpose: the safety path must not break on a missing module.
 import { existsSync, mkdirSync, readFileSync, writeFileSync, appendFileSync, rmSync } from "node:fs";
-import { execSync } from "node:child_process";
+import { execSync, spawnSync } from "node:child_process";
 
 export const ROOT = process.env.CLAUDE_PROJECT_DIR || process.cwd();
 // The loop's own namespace, separate from the .apsolut seshat vault. Overridable so a
@@ -38,13 +38,32 @@ export function maxSteps(): number {
 }
 
 // ---- harness (the judge the loop trusts) ----
-function runScript(name: string): { ok: boolean; out: string } {
-  try {
-    const out = execSync(`bun run ${name}`, { cwd: ROOT, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
-    return { ok: true, out };
-  } catch (e: any) {
-    return { ok: false, out: ((e.stdout || "") + (e.stderr || "")) };
-  }
+interface RatchetCommand {
+  display: string;
+  argv: [string, ...string[]];
+}
+
+interface RatchetConfig {
+  hard: RatchetCommand[];
+  acceptedE2e: RatchetCommand[];
+}
+
+function ratchetConfig(): RatchetConfig {
+  return JSON.parse(readFileSync(`${ROOT}/${LOOP_DIR}/ratchet.json`, "utf8")) as RatchetConfig;
+}
+
+function runCommand(command: RatchetCommand): { ok: boolean; out: string } {
+  const [executable, ...args] = command.argv;
+  const result = spawnSync(executable, args, {
+    cwd: ROOT,
+    encoding: "utf8",
+    stdio: ["ignore", "pipe", "pipe"],
+    shell: false,
+  });
+  return {
+    ok: result.status === 0 && result.error === undefined,
+    out: `${result.stdout || ""}${result.stderr || ""}${result.error?.message || ""}`,
+  };
 }
 
 function lastLine(s: string) {
@@ -54,18 +73,25 @@ function lastLine(s: string) {
 
 // Cheap, deterministic hard tier. Runs every turn. See judge-and-flake-reliability.md.
 export function runRatchet(): { allGreen: boolean; failing: string } {
-  for (const s of ["typecheck", "lint", "test:unit"]) {
-    const r = runScript(s);
-    if (!r.ok) return { allGreen: false, failing: `${s} -> ${lastLine(r.out)}` };
+  const commands = [...ratchetConfig().hard, ...ratchetConfig().acceptedE2e];
+  for (const command of commands) {
+    const result = runCommand(command);
+    if (!result.ok) return { allGreen: false, failing: `${command.display} -> ${lastLine(result.out)}` };
   }
   return { allGreen: true, failing: "" };
 }
 
 // Full harness. Runs only to verify a done-claim (expensive layers included).
 export function runFullHarness(): { allGreen: boolean; failing: string } {
-  for (const s of ["typecheck", "lint", "test:unit", "test:e2e", "test:screenshot"]) {
-    const r = runScript(s);
-    if (!r.ok) return { allGreen: false, failing: `${s} -> ${lastLine(r.out)}` };
+  const commands = [
+    ...ratchetConfig().hard,
+    ...ratchetConfig().acceptedE2e,
+    { display: "bun run test:screenshot", argv: ["bun", "run", "test:screenshot"] as [string, ...string[]] },
+    { display: "bun run perf", argv: ["bun", "run", "perf"] as [string, ...string[]] },
+  ];
+  for (const command of commands) {
+    const result = runCommand(command);
+    if (!result.ok) return { allGreen: false, failing: `${command.display} -> ${lastLine(result.out)}` };
   }
   return { allGreen: true, failing: "" };
 }

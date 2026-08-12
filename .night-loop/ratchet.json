@@ -1,0 +1,10 @@
+{
+  "hard": [
+    { "display": "bun run typecheck", "argv": ["bun", "run", "typecheck"] },
+    { "display": "bun run lint", "argv": ["bun", "run", "lint"] },
+    { "display": "bun run test:unit", "argv": ["bun", "run", "test:unit"] }
+  ],
+  "acceptedE2e": [
+    { "display": "bun test test/e2e/cli.test.ts", "argv": ["bun", "test", "test/e2e/cli.test.ts"] }
+  ]
+}

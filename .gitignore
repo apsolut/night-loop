@@ -17,6 +17,10 @@ node_modules/
 .night-loop/runs/
 .night-loop/intake.md
 
+# Personal coordination workspaces stay local and must never be published
+.apsolut/
+.apsolut-agents/
+
 # Build and test output
 dist/
 build/
