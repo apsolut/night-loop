@@ -4,7 +4,7 @@ Update after every accepted milestone. This is how the next session knows where 
 The SessionStart hook injects this file into each session.
 
 ## Done
-- M0 Harness, accepted by night-loop-judge; replacement commit pending after local-history privacy cleanup
+- M0 Harness, accepted by night-loop-judge, replacement commit `caee5a9`
 
 ## Doing
 - M1 Local apsolut-agents workspace
