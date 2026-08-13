@@ -2,6 +2,7 @@
 // No third-party deps on purpose: the safety path must not break on a missing module.
 import { existsSync, mkdirSync, readFileSync, writeFileSync, appendFileSync, rmSync } from "node:fs";
 import { execSync, spawnSync } from "node:child_process";
+import { appendLedgerEvent } from "../../src/core";
 
 export const ROOT = process.env.CLAUDE_PROJECT_DIR || process.cwd();
 // The loop's own namespace, separate from the .apsolut seshat vault. Overridable so a
@@ -19,10 +20,16 @@ export function hasMarker(name: string) { return existsSync(markerPath(name)); }
 export function writeMarker(name: string, body = "") { ensureDir(); writeFileSync(markerPath(name), body); }
 export function appendMarker(name: string, line: string) { ensureDir(); appendFileSync(markerPath(name), line.replace(/\n/g, " ") + "\n"); }
 export function removeMarker(name: string) { try { rmSync(markerPath(name)); } catch {} }
+export function appendEvent(type: string, data: Record<string, unknown>) {
+  return appendLedgerEvent(`${NL}/events.jsonl`, type, data);
+}
 
 export function isActive() { return hasMarker("ACTIVE"); }   // loop is armed
 export function disarm() { removeMarker("ACTIVE"); }
-export function writeHalt(reason: string) { writeMarker("HALTED", reason); }
+export function writeHalt(reason: string) {
+  writeMarker("HALTED", reason);
+  appendEvent("run.halted", { reason });
+}
 
 export function bumpStep(): number {
   ensureDir();
@@ -76,6 +83,7 @@ export function runRatchet(): { allGreen: boolean; failing: string } {
   const commands = [...ratchetConfig().hard, ...ratchetConfig().acceptedE2e];
   for (const command of commands) {
     const result = runCommand(command);
+    appendEvent("harness.command", { tier: "ratchet", command: command.display, ok: result.ok });
     if (!result.ok) return { allGreen: false, failing: `${command.display} -> ${lastLine(result.out)}` };
   }
   return { allGreen: true, failing: "" };
@@ -91,6 +99,7 @@ export function runFullHarness(): { allGreen: boolean; failing: string } {
   ];
   for (const command of commands) {
     const result = runCommand(command);
+    appendEvent("harness.command", { tier: "full", command: command.display, ok: result.ok });
     if (!result.ok) return { allGreen: false, failing: `${command.display} -> ${lastLine(result.out)}` };
   }
   return { allGreen: true, failing: "" };
@@ -108,6 +117,7 @@ export function readFileSafe(rel: string): string {
 
 // ---- Stop-hook decisions ----
 export function blockStop(reason: string): never {
+  appendEvent("stop.continued", { reason: reason.slice(0, 500) });
   console.log(JSON.stringify({ decision: "block", reason }));
   process.exit(0);
 }

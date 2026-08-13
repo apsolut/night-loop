@@ -2,11 +2,14 @@ import { afterEach, describe, expect, test } from "bun:test";
 import { existsSync, mkdirSync, readdirSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import {
+  appendLedgerEvent,
   atomicWriteFile,
   isInteractionRequest,
   runAgentCommand,
   runCommand,
   toRepoRelativePath,
+  readLedger,
+  verifyLedger,
   withFixtureRepo,
 } from "../../src/core";
 
@@ -95,6 +98,23 @@ describe("interaction sentinel", () => {
       expect(result.exitCode).toBe(0);
       expect(result.stdout.trim()).toBe("Allow editing");
       expect(result.status).toBe("interaction_required");
+    });
+  });
+});
+
+describe("event ledger", () => {
+  test("appends a verifiable hash chain and detects tampering", async () => {
+    await withFixtureRepo("ledger", (root) => {
+      const path = join(root, ".night-loop", "state", "events.jsonl");
+      appendLedgerEvent(path, "run.started", { permission: "workspace" }, "2026-08-13T20:00:00.000Z");
+      appendLedgerEvent(path, "policy.blocked", { action: "push" }, "2026-08-13T20:01:00.000Z");
+      const events = readLedger(path);
+      expect(events).toHaveLength(2);
+      expect(events[1]?.previousHash).toBe(events[0]?.hash);
+      expect(verifyLedger(events)).toBe(true);
+      const changed = structuredClone(events);
+      if (changed[0]) changed[0].data = { permission: "full" };
+      expect(verifyLedger(changed)).toBe(false);
     });
   });
 });

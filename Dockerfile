@@ -16,7 +16,7 @@
 FROM node:22-bookworm-slim
 
 RUN apt-get update \
- && apt-get install -y --no-install-recommends git tmux curl ca-certificates unzip \
+ && apt-get install -y --no-install-recommends git curl ca-certificates unzip \
  && rm -rf /var/lib/apt/lists/*
 
 # Bun (runs the TS hooks and the harness)

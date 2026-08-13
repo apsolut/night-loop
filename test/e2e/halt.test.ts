@@ -1,0 +1,83 @@
+import { describe, expect, test } from "bun:test";
+import { existsSync } from "node:fs";
+import { join } from "node:path";
+import { atomicWriteFile, readJsonFile, withFixtureRepo } from "../../src/core";
+
+const LOOP_HOOK = join(import.meta.dir, "..", "..", ".night-loop", "hooks", "loop.ts");
+
+async function invoke(root: string, env: Record<string, string> = {}) {
+  const child = Bun.spawn([process.execPath, LOOP_HOOK], {
+    cwd: root,
+    env: { ...process.env, CLAUDE_PROJECT_DIR: root, ...env },
+    stdin: "pipe",
+    stdout: "pipe",
+    stderr: "pipe",
+  });
+  child.stdin.write("{}");
+  child.stdin.end();
+  const [stdout, stderr, exitCode] = await Promise.all([
+    new Response(child.stdout).text(),
+    new Response(child.stderr).text(),
+    child.exited,
+  ]);
+  return { stdout, stderr, exitCode };
+}
+
+function seedHarness(root: string, screenshotPass = true): void {
+  atomicWriteFile(join(root, "pass.ts"), "process.exit(0);\n");
+  atomicWriteFile(join(root, "fail.ts"), "process.exit(1);\n");
+  atomicWriteFile(join(root, "package.json"), `${JSON.stringify({
+    scripts: {
+      "test:screenshot": `bun ${screenshotPass ? "pass.ts" : "fail.ts"}`,
+      perf: "bun pass.ts",
+    },
+  }, null, 2)}\n`);
+  atomicWriteFile(join(root, ".night-loop", "ratchet.json"), `${JSON.stringify({
+    hard: [{ display: "seed pass", argv: ["bun", "pass.ts"] }],
+    acceptedE2e: [],
+  }, null, 2)}\n`);
+}
+
+describe("verified halt states", () => {
+  test("done requires a green full harness", async () => {
+    await withFixtureRepo("done", async (root) => {
+      seedHarness(root);
+      atomicWriteFile(join(root, ".night-loop", "state", "ACTIVE"), "run\n");
+      atomicWriteFile(join(root, ".night-loop", "state", "CLAIM_DONE"), "");
+      const result = await invoke(root);
+      expect(result.exitCode).toBe(0);
+      expect(await Bun.file(join(root, ".night-loop", "state", "HALTED")).text()).toBe("done");
+      expect(existsSync(join(root, ".night-loop", "state", "ACTIVE"))).toBe(false);
+    });
+  });
+
+  test("a red full harness rejects and removes CLAIM_DONE with exact command evidence", async () => {
+    await withFixtureRepo("rejected", async (root) => {
+      seedHarness(root, false);
+      atomicWriteFile(join(root, ".night-loop", "state", "ACTIVE"), "run\n");
+      atomicWriteFile(join(root, ".night-loop", "state", "CLAIM_DONE"), "");
+      const result = await invoke(root);
+      expect(result.exitCode).toBe(0);
+      expect(JSON.parse(result.stdout)).toMatchObject({ decision: "block" });
+      expect(result.stdout).toContain("bun run test:screenshot");
+      expect(existsSync(join(root, ".night-loop", "state", "CLAIM_DONE"))).toBe(false);
+      expect(existsSync(join(root, ".night-loop", "state", "ACTIVE"))).toBe(true);
+    });
+  });
+
+  test("blocked and budget halt without leaving ACTIVE", async () => {
+    for (const reason of ["blocked", "budget"] as const) {
+      await withFixtureRepo(reason, async (root) => {
+        seedHarness(root);
+        atomicWriteFile(join(root, ".night-loop", "state", "ACTIVE"), "run\n");
+        if (reason === "blocked") atomicWriteFile(join(root, ".night-loop", "state", "ALL_BLOCKED"), "");
+        const result = await invoke(root, reason === "budget" ? { NIGHT_LOOP_MAX_STEPS: "0" } : {});
+        expect(result.exitCode).toBe(0);
+        expect(await Bun.file(join(root, ".night-loop", "state", "HALTED")).text()).toBe(reason);
+        expect(existsSync(join(root, ".night-loop", "state", "ACTIVE"))).toBe(false);
+        const tape = await Bun.file(join(root, ".night-loop", "state", "events.jsonl")).text();
+        expect(tape).toContain(`\"reason\":\"${reason}\"`);
+      });
+    }
+  });
+});

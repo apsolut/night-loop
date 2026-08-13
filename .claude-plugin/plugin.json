@@ -1,0 +1,16 @@
+{
+  "name": "night-loop",
+  "version": "0.1.0",
+  "description": "An unattended Claude Code build loop with deterministic safety gates and independent completion evidence.",
+  "author": {
+    "name": "apsolut"
+  },
+  "homepage": "https://github.com/apsolut/night-loop",
+  "repository": "https://github.com/apsolut/night-loop",
+  "license": "MIT",
+  "keywords": [
+    "claude-code",
+    "automation",
+    "verification"
+  ]
+}

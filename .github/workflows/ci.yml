@@ -1,0 +1,100 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    name: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - windows-latest
+          - ubuntu-latest
+          - macos-latest
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.8
+
+      - name: Record prerequisites
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force .night-loop/artifacts | Out-Null
+          @(
+            "os=$([System.Runtime.InteropServices.RuntimeInformation]::OSDescription)"
+            "architecture=$([System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture)"
+            "bun=$(bun --version)"
+            "git=$(git --version)"
+            "missing=0"
+          ) | Set-Content .night-loop/artifacts/doctor.txt
+
+      - name: Install locked toolchain
+        run: bun install --frozen-lockfile
+
+      - name: Validate plugin manifest and shipped components
+        shell: pwsh
+        run: |
+          $manifest = Get-Content .claude-plugin/plugin.json -Raw | ConvertFrom-Json
+          if ($manifest.name -ne "night-loop") { throw "Unexpected plugin name" }
+          @(
+            "skills/night-loop/SKILL.md"
+            "agents/night-loop-judge.md"
+            "hooks/hooks.json"
+            ".night-loop/hooks/gate.ts"
+            ".night-loop/hooks/events.ts"
+            ".night-loop/hooks/loop.ts"
+            ".night-loop/hooks/resume.ts"
+          ) | ForEach-Object {
+            if (-not (Test-Path -LiteralPath $_ -PathType Leaf)) { throw "Missing plugin file: $_" }
+          }
+          Get-Content hooks/hooks.json -Raw | ConvertFrom-Json | Out-Null
+
+      - name: Check PowerShell launcher syntax
+        shell: pwsh
+        run: |
+          $tokens = $null
+          $errors = $null
+          [System.Management.Automation.Language.Parser]::ParseFile(
+            (Resolve-Path scripts/night-loop.ps1),
+            [ref]$tokens,
+            [ref]$errors
+          ) | Out-Null
+          if ($errors.Count -gt 0) { throw ($errors | Out-String) }
+
+      - name: Check POSIX launcher syntax
+        if: runner.os != 'Windows'
+        shell: bash
+        run: sh -n scripts/night-loop.sh
+
+      - name: Build
+        run: bun run build
+
+      - name: Typecheck
+        run: bun run typecheck
+
+      - name: Lint
+        run: bun run lint
+
+      - name: Unit tests
+        run: bun run test:unit
+
+      - name: Deterministic end-to-end tests
+        run: bun run test:e2e
+
+      - name: Upload doctor report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: doctor-${{ matrix.os }}
+          path: .night-loop/artifacts/doctor.txt
+          if-no-files-found: error

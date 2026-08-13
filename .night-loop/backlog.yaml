@@ -9,96 +9,72 @@
   acceptance:
     - "From native PowerShell on Windows, bun run build, typecheck, lint, and test:unit execute real checks with no placeholder command and all pass"
     - "The hard-tier unit suite proves path normalization, atomic file state, command argument preservation, and fixture cleanup in a repository path containing spaces"
-    - "bun run test:e2e executes a deterministic CLI fixture with no real provider or network access, and the ratchet records the exact passing test commands"
-    - "A deterministic interaction sentinel fails the suite if any seeded agent run requests clarification, approval, confirmation, edit permission, or user input"
+    - "bun run test:e2e executes a deterministic CLI fixture with no real Claude call or network access, and the ratchet records the exact passing test commands"
+    - "A deterministic interaction sentinel fails the suite if any seeded Claude run requests clarification, approval, confirmation, edit permission, or user input"
 
-- id: M1-apsolut-agents-workspace
+- id: M1-claude-command-surface
   depends_on: [M0-harness]
   gated: false
   acceptance:
-    - "A fresh checkout contains no tracked .apsolut-agents path, and night-loop setup installs a gitignored local Tier 2 workspace stamped VERSION 0.7.1"
-    - "A fixture comparison proves every untouched locally installed payload file matches the pinned apsolut-agents v0.7.1 source"
-    - "Running setup twice preserves local instance files byte-for-byte, creates no tracked diff, and reports no second-run additions"
-    - "PROJECT.md and agent charters identify NIGHT LOOP plus Codex, Grok, Agy, and Claude without containing credentials or machine-specific absolute paths"
-    - "The shared agent protocol states that ordinary ambiguity is resolved from repository evidence and deterministic defaults, while missing authority produces a structured blocked result and never a question"
+    - "night-loop full follows the exact parser and execution path of night-loop start --permissions full, with no confirmation and no separate implementation path"
+    - "night-loop start without a permissions option selects workspace permission, and status, stop, and resume never ask a question"
+    - "night-loop setup is the only attended command and records the approved goal plus settings before the supervisor starts"
+    - "Resume preserves the prior permission profile and limits without upgrading either value"
+    - "A seeded Claude output that requests clarification, approval, confirmation, edit permission, command permission, or user input is classified as interaction_required and cannot leave the command waiting"
 
-- id: M2-cross-platform-workspace-core
-  depends_on: [M1-apsolut-agents-workspace]
+- id: M2-native-claude-supervisor
+  depends_on: [M1-claude-command-surface]
   gated: false
   acceptance:
-    - "The same Bun entrypoint runs setup, status, session-end, and doctor from PowerShell and POSIX shells without invoking bash, sh, awk, sed, grep, mktemp, timeout, or tmux"
-    - "Given a seeded Git history and task-card set, status output and persisted PROJECT_STATE facts equal values computed directly from the seed"
-    - "Given LF and CRLF fixtures plus repository paths containing spaces and non-ASCII characters, setup and status produce identical normalized state without corrupting source files"
-    - "Running setup or refresh twice preserves instance files byte-for-byte and reports no second-run additions"
+    - "From native PowerShell, one documented command starts one interactive Claude Code session without WSL or tmux"
+    - "PowerShell and POSIX launchers call the same Bun supervisor core and produce equivalent state transitions from the same seed"
+    - "A fake Claude executable proves the supervisor preserves repository paths and arguments containing spaces, quotes, Unicode, and shell metacharacters without shell evaluation"
+    - "The supervisor uses the installed Claude Code subscription session and never accepts or requests a metered API key"
+    - "Only one implementer session runs at a time; the independent night-loop-judge remains verification infrastructure rather than a second implementation lane"
 
-- id: M3-cross-platform-worktrees
-  depends_on: [M2-cross-platform-workspace-core]
+- id: M3-durable-resume-and-halt
+  depends_on: [M2-native-claude-supervisor]
   gated: false
   acceptance:
-    - "In a seeded repository, worktree spawn creates the declared agent branch and isolated checkout, materializes the ignored local workspace pointer, and leaves the primary branch unchanged"
-    - "Two concurrent claims for the same seeded card yield exactly one owner and one refusal without an operating-system-specific locking implementation"
-    - "Completing a green seeded card merges only its declared commit through the primary control plane, removes its worktree, and records done state derived from Git"
-    - "A dirty primary tree, undeclared changed path, or red verification command prevents merge and preserves the agent branch for inspection"
-
-- id: M4-provider-adapters
-  depends_on: [M2-cross-platform-workspace-core]
-  gated: false
-  acceptance:
-    - "Seeded fake executables prove Codex receives its prompt on stdin with its worktree as --cd, Grok receives a single-turn prompt with --cwd and nested agents disabled, Agy receives its prompt in the required print-mode position, and Claude receives a non-interactive print prompt"
-    - "Each adapter converts success, structured provider error, throttle, malformed output, and nonzero exit fixtures into the documented provider-neutral result without losing the bounded diagnostic tail"
-    - "Provider discovery reports installed, missing, and unauthenticated fixtures separately and never prints environment secrets or command-line credentials"
-    - "Adapter command construction passes arguments as an array and preserves spaces, quotes, Unicode, and shell metacharacters without shell evaluation"
-    - "Codex, Grok, Agy, and Claude adapters use their provider-specific no-approval mode, receive no interactive terminal, and have stdin closed immediately after task delivery"
-    - "A fake provider that prints an approval question or waits for input is terminated, recorded as interaction_required, and never leaves its card in a running state"
-
-- id: M5-bounded-delegation
-  depends_on: [M3-cross-platform-worktrees, M4-provider-adapters]
-  gated: false
-  acceptance:
-    - "A seeded fake provider completes a task in its isolated worktree, the configured green command passes against the resulting commit, and the card advances to review without modifying the primary branch"
-    - "Timeout and stop fixtures terminate the full provider process tree, salvage tracked work on the agent branch, release the claim, and leave no live child process"
-    - "Depth, concurrency, round, and spend-cap fixtures each refuse the first disallowed dispatch and do not start a provider process"
-    - "A throttled fixture consumes neither a correction round nor fallback spend, while a manually stopped fixture consumes both exactly once"
-    - "Delegate status and tail read bounded persisted state without polling a model or loading a full raw transcript into the controlling agent"
-    - "When a seeded card lacks required authority or ground truth, the delegate returns a structured blocked result, the card is shelved, and the dispatcher selects the next ready card without asking the owner"
-
-- id: M6-native-night-loop-supervisor
-  depends_on: [M5-bounded-delegation]
-  gated: false
-  acceptance:
-    - "night-loop full follows the exact parser and execution path of night-loop start --permissions full, while night-loop start without that option selects workspace permission and neither command asks for confirmation"
-    - "night-loop setup is the only command allowed to ask questions; status and stop are non-interactive, and resume preserves the prior permission profile, limits, and spend caps without upgrading them"
-    - "From native PowerShell, one documented command arms NIGHT LOOP, launches the configured fake primary agent without tmux or WSL, and resumes the same task after a seeded process exit"
-    - "Seeded step progress resets the stall counter, seeded inactivity triggers bounded relaunch with deterministic test backoff, and the configured relaunch cap stops the supervisor"
-    - "HALTED values done, blocked, and budget each stop the complete child process tree, remove ACTIVE, preserve logs, and return the documented exit code"
+    - "A seeded Claude process exit relaunches the loop with progress.md and Git state injected, continuing the same backlog item"
+    - "Seeded step progress resets the stall counter, while seeded inactivity triggers bounded relaunch with deterministic test backoff"
+    - "Stop terminates the complete child process tree, removes ACTIVE, preserves resumable state and logs, and returns the documented exit code"
+    - "HALTED values done, blocked, and budget each stop the supervisor without leaving a live Claude process"
     - "A rejected CLAIM_DONE removes the claim and continues only after the independent full harness reports the exact failing command; a green full harness halts as done"
-    - "PowerShell and POSIX launchers both call the same Bun supervisor core and produce equivalent state transitions from the same seed"
-    - "A seeded clarification request, permission prompt, or confirmation request from the primary agent is classified as a failed turn and cannot pause the supervisor for user input"
-    - "Seeded full-permission runs prove that environment scrubbing, process and filesystem containment, command and network policy, test-credential allowlisting, spend caps, and push, publish, deploy, and production-write blocks remain enforced outside the provider"
 
-- id: M7-portable-install-and-ci
-  depends_on: [M6-native-night-loop-supervisor]
+- id: M4-unattended-safety-policy
+  depends_on: [M3-durable-resume-and-halt]
+  gated: false
+  acceptance:
+    - "A seeded full-permission run proves full changes Claude workspace authority only; containment and external-action policy remain unchanged"
+    - "Seeded push, publish, deploy, destructive deletion, unapproved network fetch, and production-write attempts are denied and recorded without halting unrelated buildable work"
+    - "Security-surface work uses seeded data and test credentials only and writes a review-before-production note to the morning digest"
+    - "No credential value appears in the repository, prompt capture, process arguments, logs, or test snapshots"
+    - "A missing authority or missing ground truth produces a structured blocked result, shelves that milestone, and continues to the next buildable milestone without asking the sleeping owner"
+
+- id: M5-portable-install-and-ci
+  depends_on: [M4-unattended-safety-policy]
   gated: false
   acceptance:
     - "A clean Windows fixture follows the PowerShell quick start with no WSL or Git Bash and reaches a green doctor check using only documented prerequisites"
-    - "A clean Linux container fixture follows the POSIX quick start and reaches the same green doctor check without changing the Bun core used on Windows"
+    - "A clean Linux container fixture follows the POSIX quick start and reaches the same green doctor check using the same Bun core"
     - "Committed CI defines Windows, Linux, and macOS jobs that run build, typecheck, lint, unit, and deterministic end-to-end suites with fixed Bun and Git prerequisites"
-    - "Generated Codex hooks resolve scripts from the Git root with POSIX and commandWindows commands, Claude hooks use CLAUDE_PROJECT_DIR, and relocating the seeded repository does not change hook behavior"
-    - "Documentation distinguishes native host mode from optional container isolation and contains no instruction that requires production credentials or irreversible external actions"
-    - "The Windows, Linux, and macOS quick starts require one arm command and document zero execution-time questions from Codex, Grok, Agy, or Claude"
+    - "Generated Claude hooks resolve scripts relative to the project, and relocating a seeded repository does not change hook behavior"
+    - "The public install footprint contains no apsolut-agents payload, bootstrap block, dependency, setup action, or runtime reference"
+    - "Documentation presents one Claude session, one arm command, zero execution-time questions, and no requirement for production credentials or irreversible external actions"
 
-- id: M8-cross-os-matrix-certification
-  depends_on: [M7-portable-install-and-ci]
+- id: M6-cross-os-matrix-certification
+  depends_on: [M5-portable-install-and-ci]
   gated: hard-block
   acceptance:
     - "The same commit passes build, typecheck, lint, test:unit, and deterministic test:e2e on native windows-latest, ubuntu-latest, and macos-latest runners"
     - "Each operating-system job uploads a doctor report that records OS, architecture, Bun version, Git version, and zero missing required capabilities without exposing environment secrets"
     - "A failure on any operating system remains red and cannot be replaced by a passing result from another operating system"
 
-- id: M9-live-provider-smoke
-  depends_on: [M7-portable-install-and-ci]
+- id: M7-live-claude-smoke
+  depends_on: [M5-portable-install-and-ci]
   gated: hard-block
   acceptance:
-    - "With owner-approved test credentials, Codex, Grok, Agy, and Claude each complete a bounded machine-readable probe from an empty temporary working directory, ask no questions, and leave no file diff"
-    - "With owner-approved spend and test credentials, Codex, Grok, Agy, and Claude each execute one seeded task card in an isolated worktree, the repository independently verifies the expected fixture change, and no provider can push or merge"
-    - "Every live smoke result records provider name, CLI version, exit state, elapsed time, and redacted evidence without recording prompts that contain secrets or any credential value"
+    - "With owner-approved test authentication, Claude Code completes a bounded probe from an empty temporary working directory, asks no question, and leaves no file diff"
+    - "With owner-approved test authentication, Claude Code executes one seeded backlog task inside the jail, the repository independently verifies the expected fixture change, and Claude cannot push, publish, deploy, or write to production"
+    - "The live smoke records the Claude Code CLI version, exit state, elapsed time, permission profile, and redacted evidence without recording credentials or secret-bearing prompts"

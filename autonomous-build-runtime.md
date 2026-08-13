@@ -1,6 +1,6 @@
 # Autonomous Build Runtime
 
-> **NIGHT LOOP reconciliation (2026-06).** The running system is **NIGHT LOOP** on the **Claude Code Max CLI** (interactive), driven by a **Stop hook**; the real files are in `.night-loop/hooks/`, `.claude/`, `scripts/night-loop.sh`, and `NIGHT-LOOP.md`. The `orchestrator/loop.ts` spine below is the conceptual model; the real loop is the Stop hook (`.night-loop/hooks/loop.ts`) keeping one interactive session alive while a tmux supervisor relaunches across pauses. Billing reality: only Claude Code *interactive* uses the flat Max limits; headless `claude -p` and the Agent SDK draw a separate metered credit (from 2026-06-15), and API-key agents (Pi, Aider, SDK) bill pay-go. Where this doc and the real files differ, the files win.
+> **NIGHT LOOP reconciliation (2026-08).** The running system uses one native Claude Code background session started with `claude --bg`, plus a Stop-hook verifier and a thin cross-platform Bun supervisor. The conceptual model below remains useful, but the product does not use tmux, headless print mode, the Agent SDK, API keys, provider adapters, or a custom multi-agent control plane. Where this document and the real files differ, `NIGHT-LOOP.md` and the runtime files win.
 
 The autonomy shell that wraps the build loop. The build loop (inner convergence + outer milestone selection + judge stack + ratchet) is the machinery from the prior doc. This is the layer that lets it run for days, survive crashes, gate the dangerous parts, and stop every ~100 steps for durable feedback.
 

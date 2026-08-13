@@ -1,4 +1,5 @@
 import {
+  appendFileSync,
   closeSync,
   existsSync,
   fsyncSync,
@@ -10,6 +11,7 @@ import {
   rmSync,
   writeFileSync,
 } from "node:fs";
+import { createHash } from "node:crypto";
 import { tmpdir } from "node:os";
 import { dirname, isAbsolute, join, relative, resolve } from "node:path";
 
@@ -49,6 +51,90 @@ export function atomicWriteJson(path: string, value: unknown): void {
   atomicWriteFile(path, `${JSON.stringify(value, null, 2)}\n`);
 }
 
+export interface LedgerEvent {
+  id: string;
+  timestamp: string;
+  type: string;
+  previousHash: string;
+  hash: string;
+  data: Record<string, unknown>;
+}
+
+function hashText(value: string): string {
+  return createHash("sha256").update(value).digest("hex");
+}
+
+export function appendLedgerEvent(
+  path: string,
+  type: string,
+  data: Record<string, unknown>,
+  timestamp = new Date().toISOString(),
+): LedgerEvent {
+  mkdirSync(dirname(path), { recursive: true });
+  const lock = `${path}.lock`;
+  let acquired = false;
+  for (let attempt = 0; attempt < 200; attempt += 1) {
+    try {
+      mkdirSync(lock);
+      acquired = true;
+      break;
+    } catch {
+      Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 10);
+    }
+  }
+  if (!acquired) throw new Error("Event ledger lock timed out");
+  try {
+    const previous = readLedger(path).at(-1);
+    const previousHash = previous?.hash ?? "GENESIS";
+    const sequence = (previous ? Number(previous.id.split(":").at(-1)) : 0) + 1;
+    const id = `${timestamp}:${process.pid}:${sequence}`;
+    const unsigned = { id, timestamp, type, previousHash, data };
+    const event: LedgerEvent = { ...unsigned, hash: hashText(JSON.stringify(unsigned)) };
+    appendFileSync(path, `${JSON.stringify(event)}\n`, "utf8");
+    return event;
+  } finally {
+    rmSync(lock, { force: true, recursive: true });
+  }
+}
+
+export function readLedger(path: string): LedgerEvent[] {
+  if (!existsSync(path)) return [];
+  return readFileSync(path, "utf8")
+    .split(/\r?\n/)
+    .filter(Boolean)
+    .map((line) => JSON.parse(line) as LedgerEvent);
+}
+
+export function verifyLedger(events: readonly LedgerEvent[]): boolean {
+  let previousHash = "GENESIS";
+  for (const event of events) {
+    const unsigned = {
+      id: event.id,
+      timestamp: event.timestamp,
+      type: event.type,
+      previousHash: event.previousHash,
+      data: event.data,
+    };
+    if (event.previousHash !== previousHash || event.hash !== hashText(JSON.stringify(unsigned))) return false;
+    previousHash = event.hash;
+  }
+  return true;
+}
+
+async function removeFixtureTree(path: string): Promise<void> {
+  // Windows releases a terminated child's cwd handle asynchronously, so the first
+  // removal attempts can report EBUSY. Retry within a bound instead of flaking.
+  for (let attempt = 0; ; attempt += 1) {
+    try {
+      rmSync(path, { force: true, recursive: true });
+      return;
+    } catch (error) {
+      if (attempt >= 200) throw error;
+      await new Promise((resolve) => setTimeout(resolve, 25));
+    }
+  }
+}
+
 export async function withFixtureRepo<T>(
   label: string,
   run: (root: string) => T | Promise<T>,
@@ -60,7 +146,7 @@ export async function withFixtureRepo<T>(
   try {
     return await run(root);
   } finally {
-    rmSync(parent, { force: true, recursive: true });
+    await removeFixtureTree(parent);
   }
 }
 
@@ -74,11 +160,13 @@ export interface CommandResult {
 
 export async function runCommand(
   command: readonly [string, ...string[]],
-  options: { cwd: string; env?: Record<string, string> },
+  options: { cwd: string; env?: Record<string, string>; unsetEnv?: readonly string[] },
 ): Promise<CommandResult> {
+  const env = { ...process.env, ...options.env };
+  for (const name of options.unsetEnv ?? []) delete env[name];
   const child = Bun.spawn([...command], {
     cwd: options.cwd,
-    env: options.env ? { ...process.env, ...options.env } : process.env,
+    env,
     stdin: "ignore",
     stdout: "pipe",
     stderr: "pipe",

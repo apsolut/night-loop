@@ -22,18 +22,19 @@ Reload at the start of every plan. Human feedback at checkpoints appends here, d
 - Runtime: Bun 1.3.x and TypeScript; this is a CLI and repository-tooling project with no frontend or charting layer.
 - Canonical cross-platform logic: one Bun and TypeScript core. PowerShell and POSIX files may only be thin launchers.
 - Operating systems: native Windows without WSL is required; Linux and macOS must use the same core behavior.
-- Upstream workspace: install `apsolut-agents` v0.7.1 locally under the fully gitignored `.apsolut-agents/` path; preserve its markdown contracts and instance-file upgrade rules without publishing personal coordination state.
-- Provider boundaries: typed Codex, Grok, Agy, Claude, and fake adapters. Never build provider commands by concatenating a shell string.
-- Zero interaction after arming: close provider stdin after task delivery, use provider-specific non-interactive permission flags, and treat any request for clarification, approval, edit permission, confirmation, or user input as a failed provider run.
+- Product boundary: NIGHT LOOP runs one Claude Code CLI implementer session. Local contributor tools, including `.apsolut-agents/`, are not product dependencies and never enter setup, runtime, packaging, or public documentation.
+- Claude boundary: construct Claude commands as argument arrays and never concatenate a shell string.
+- Zero interaction after arming: treat any request for clarification, approval, edit permission, confirmation, or user input as a failed Claude turn that cannot pause the supervisor.
 - Command model: `night-loop setup` is the only attended command. `night-loop start` defaults to workspace permission, and `night-loop full` is a parser-level exact alias for `night-loop start --permissions full` with no confirmation and no separate execution path.
-- Permission profiles: `full` changes provider workspace authority only. Environment scrubbing, process and filesystem containment, command and network policy, test-credential allowlisting, spend caps, and blocks on push, publish, deploy, and production writes remain immutable outside the provider.
+- Permission profiles: `full` changes Claude workspace authority only. Environment scrubbing, process and filesystem containment, command and network policy, test-credential allowlisting, spend caps, and blocks on push, publish, deploy, and production writes remain immutable outside Claude.
 - Resume safety: stop preserves resumable state and the selected permission profile. Resume never upgrades permission, limits, or spend caps implicitly.
 - Ambiguity policy: use the backlog, constraints, repository evidence, and deterministic defaults for reversible decisions. Emit a structured blocked result and continue when required authority or ground truth is absent.
-- Tests: deterministic fake executables and seeded temporary Git repositories gate behavior. Live provider calls never substitute for the hard tier.
+- Tests: a deterministic fake Claude executable and seeded temporary Git repositories gate behavior. Live Claude calls never substitute for the hard tier.
 - Paths and text: use platform path APIs, support spaces and Unicode, and normalize LF and CRLF deliberately.
-- Security: no provider key in the repository, logs, prompts, process arguments, or test snapshots.
+- Security: no Claude credential or API key in the repository, logs, prompts, process arguments, or test snapshots.
 
 ## Appended by human feedback
-- 2026-08-13: The main product requirement is that Codex, Grok, Agy, and Claude never ask execution-time questions such as approval, confirmation, or permission to edit.
+- 2026-08-13: The main product requirement is that the active Claude implementer never asks execution-time questions such as approval, confirmation, or permission to edit. Any future CLI support must satisfy the same contract before entering product scope.
 - 2026-08-13: Use `night-loop full` as the self-explanatory no-confirmation alias for `night-loop start --permissions full`; do not expose `arm` as the primary command.
 - 2026-08-13: `.apsolut-agents/` is personal local state and must never be tracked or published to the public repository.
+- 2026-08-13: Installing `.apsolut-agents/` in this checkout was solely to help multiple assistants develop NIGHT LOOP. It is not a NIGHT LOOP integration, feature, dependency, or public deliverable.

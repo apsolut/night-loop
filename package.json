@@ -6,7 +6,7 @@
     "typecheck": "tsc --noEmit",
     "lint": "bun run scripts/lint.ts",
     "test:unit": "bun test test/unit",
-    "test:e2e": "bun test test/e2e/cli.test.ts",
+    "test:e2e": "bun test test/e2e",
     "test:screenshot": "bun run scripts/test-screenshot.ts",
     "test:flake-baseline": "bun run scripts/flake-baseline.ts",
     "build": "bun build src/cli.ts --outdir dist --target bun",

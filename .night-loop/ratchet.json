@@ -5,6 +5,6 @@
     { "display": "bun run test:unit", "argv": ["bun", "run", "test:unit"] }
   ],
   "acceptedE2e": [
-    { "display": "bun test test/e2e/cli.test.ts", "argv": ["bun", "test", "test/e2e/cli.test.ts"] }
+    { "display": "bun test test/e2e", "argv": ["bun", "test", "test/e2e"] }
   ]
 }
