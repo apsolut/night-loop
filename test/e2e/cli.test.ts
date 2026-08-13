@@ -80,6 +80,33 @@ describe("deterministic CLI fixture", () => {
       expect(JSON.parse(result.stdout)).toEqual({ status: "success", repo: ".", payload });
     });
   });
+
+  test("every available launcher drives the same Bun core to identical state from one seed", async () => {
+    await withFixtureRepo("launcher parity", async (root) => {
+      const payload = "parity ' quote \" Ω ; $(never-run)";
+      const launchers: [string, ...string[]][] = [];
+      if (Bun.which("pwsh")) launchers.push(["pwsh", "-NoProfile", "-File", POWERSHELL_LAUNCHER]);
+      if (Bun.which("sh")) launchers.push(["sh", POSIX_LAUNCHER]);
+      expect(launchers.length).toBeGreaterThan(0);
+      for (const launcher of launchers) {
+        const result = await runCommand([
+          ...launcher,
+          "fixture",
+          "--repo",
+          root,
+          "--payload",
+          payload,
+        ], { cwd: root });
+        expect(result.exitCode).toBe(0);
+        expect(JSON.parse(result.stdout)).toEqual({ status: "success", repo: ".", payload });
+        expect(readJsonFile<FixtureResult>(join(root, ".night-loop", "state", "fixture.json"))).toEqual({
+          status: "success",
+          repo: ".",
+          payload,
+        });
+      }
+    });
+  }, 20000);
 });
 
 const SESSION_ID = "123e4567-e89b-12d3-a456-426614174000";
@@ -171,6 +198,24 @@ describe("Claude-native command surface", () => {
     });
   });
 
+  test("a second start while a session is active is rejected without reaching Claude", async () => {
+    await withFixtureRepo("single session", async (root) => {
+      const { script, log } = await fakeClaude(root);
+      const env = cliEnv(script, log);
+      await runCommand([process.execPath, CLI, "setup", "--repo", root, "--goal", "One implementer"], { cwd: root, env });
+      expect((await runCommand([process.execPath, CLI, "start", "--repo", root], { cwd: root, env })).exitCode).toBe(0);
+      const callsBefore = (await Bun.file(log).text()).trim().split(/\r?\n/).length;
+      const second = await runCommand([process.execPath, CLI, "start", "--repo", root], { cwd: root, env });
+      expect(second.exitCode).toBe(2);
+      expect(JSON.parse(second.stderr)).toMatchObject({
+        status: "invalid_arguments",
+        message: "A NIGHT LOOP session is already active",
+      });
+      const callsAfter = (await Bun.file(log).text()).trim().split(/\r?\n/).length;
+      expect(callsAfter).toBe(callsBefore);
+    });
+  });
+
   test("start without a prior contract fails fast and never reaches Claude or a supervisor", async () => {
     await withFixtureRepo("no contract", async (root) => {
       const { script, log } = await fakeClaude(root);
@@ -234,6 +279,73 @@ describe("Claude-native command surface", () => {
       }
       expect(() => process.kill(pid, 0)).toThrow();
     });
+  }, 30000);
+
+  test("the fake Claude receives the seeded prompt and settings path verbatim", async () => {
+    await withFixtureRepo("verbatim argv", async (root) => {
+      const { script, log } = await fakeClaude(root);
+      const env = cliEnv(script, log);
+      const goal = "Handle spaces ' quotes \" Ω ; $(never-run) `backtick`";
+      expect((await runCommand([
+        process.execPath, CLI, "setup", "--repo", root, "--goal", goal,
+      ], { cwd: root, env })).exitCode).toBe(0);
+      expect((await runCommand([process.execPath, CLI, "start", "--repo", root], { cwd: root, env })).exitCode).toBe(0);
+      const call = JSON.parse((await Bun.file(log).text()).trim().split(/\r?\n/).at(-1)!) as { args: string[] };
+      expect(call.args.at(-1)).toContain(`/goal ${goal}`);
+      const settingsPath = call.args[call.args.indexOf("--settings") + 1]!;
+      expect(settingsPath).toBe(join(root, ".night-loop", "state", "claude-settings.json"));
+      expect(settingsPath).toContain("Ω");
+      expect(settingsPath).toContain(" ");
+    });
+  });
+
+  const pwshAvailable = Boolean(Bun.which("pwsh"));
+  const shAvailable = Boolean(Bun.which("sh"));
+
+  test.if(pwshAvailable)("the documented PowerShell command drives setup and start to the fake Claude", async () => {
+    await withFixtureRepo("pwsh start", async (root) => {
+      const { script, log } = await fakeClaude(root);
+      const env = cliEnv(script, log);
+      const launcher = ["pwsh", "-NoProfile", "-File", POWERSHELL_LAUNCHER] as const;
+      expect((await runCommand([
+        ...launcher, "setup", "--repo", root, "--goal", "PowerShell native ' \" Ω",
+      ], { cwd: root, env })).exitCode).toBe(0);
+      const launched = await runCommand([...launcher, "start", "--repo", root], { cwd: root, env });
+      expect(launched.exitCode).toBe(0);
+      expect(JSON.parse(launched.stdout)).toMatchObject({
+        status: "running",
+        nativeSessionId: SESSION_ID,
+        permissions: "workspace",
+      });
+      const call = JSON.parse((await Bun.file(log).text()).trim().split(/\r?\n/).at(-1)!) as { args: string[] };
+      expect(call.args.at(-1)).toContain("/goal PowerShell native ' \" Ω");
+    });
+  }, 20000);
+
+  test.if(pwshAvailable && shAvailable)("both launchers produce equivalent state transitions from the same seed", async () => {
+    const transitions: Array<{ run: Record<string, unknown>; events: Array<[string, Record<string, unknown>]> }> = [];
+    for (const kind of ["pwsh", "sh"] as const) {
+      await withFixtureRepo(`parity ${kind}`, async (root) => {
+        const { script, log } = await fakeClaude(root);
+        const env = cliEnv(script, log);
+        const launcher = kind === "pwsh"
+          ? ["pwsh", "-NoProfile", "-File", POWERSHELL_LAUNCHER] as const
+          : ["sh", POSIX_LAUNCHER] as const;
+        expect((await runCommand([
+          ...launcher, "setup", "--repo", root, "--goal", "Same seed ' \" Ω", "--workers", "2", "--max-steps", "120",
+        ], { cwd: root, env })).exitCode).toBe(0);
+        expect((await runCommand([...launcher, "start", "--repo", root], { cwd: root, env })).exitCode).toBe(0);
+        expect((await runCommand([...launcher, "stop", "--repo", root], { cwd: root, env })).exitCode).toBe(0);
+        const run = readJsonFile<Record<string, unknown>>(join(root, ".night-loop", "state", "run.json"));
+        const events = (await Bun.file(join(root, ".night-loop", "state", "events.jsonl")).text())
+          .trim().split(/\r?\n/)
+          .map((line) => JSON.parse(line) as { type: string; data: Record<string, unknown> })
+          .map((event) => [event.type, event.data] as [string, Record<string, unknown>]);
+        transitions.push({ run, events });
+      });
+    }
+    expect(transitions[0]!.run).toEqual(transitions[1]!.run);
+    expect(transitions[0]!.events).toEqual(transitions[1]!.events);
   }, 30000);
 
   test("start classifies seeded Claude questions and exits without an active wait", async () => {
@@ -425,6 +537,30 @@ describe("Question Firewall and immutable gate", () => {
       expect(JSON.parse(await new Response(gateChild.stdout).text())).toMatchObject({
         hookSpecificOutput: { permissionDecision: "deny" },
       });
+    });
+  });
+
+  test("the worker cap denies implementer Agent calls while the judge ships without edit tools", async () => {
+    await withFixtureRepo("agent lane", async (root) => {
+      const child = Bun.spawn([process.execPath, GATE_HOOK], {
+        cwd: root,
+        env: { ...process.env, CLAUDE_PROJECT_DIR: root },
+        stdin: "pipe",
+        stdout: "pipe",
+      });
+      child.stdin.write(JSON.stringify({
+        tool_name: "Agent",
+        tool_input: { subagent_type: "general-purpose", prompt: "implement the next milestone" },
+      }));
+      child.stdin.end();
+      expect(JSON.parse(await new Response(child.stdout).text())).toMatchObject({
+        hookSpecificOutput: { permissionDecision: "deny" },
+      });
+      const tape = await Bun.file(join(root, ".night-loop", "state", "events.jsonl")).text();
+      expect(tape).toContain('"category":"worker_cap"');
+      const judgeDefinition = await Bun.file(join(PRODUCT_ROOT, "agents", "night-loop-judge.md")).text();
+      const tools = judgeDefinition.match(/^tools:\s*(.+)$/m)?.[1] ?? "";
+      expect(tools.split(",").map((tool) => tool.trim()).sort()).toEqual(["Bash", "Grep", "Read"]);
     });
   });
 

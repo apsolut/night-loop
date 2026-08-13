@@ -12,8 +12,15 @@ The SessionStart hook injects this file into each session.
   probes red on every criterion carrier. Flake root cause fixed in withFixtureRepo
   (bounded EBUSY retry for Windows cwd-handle release).
 
+- M2 Native Claude supervisor, CERTIFIED by night-loop-judge on 2026-08-14 after one
+  rejection drove four new carriers: PowerShell launcher to fake Claude composition,
+  launcher-to-launcher state-transition parity from one seed, verbatim prompt and
+  settings-path argv assertions (kills the ASCII-mangling mutants), and an Agent-lane
+  gate test plus judge tool-set assertion. Judge added a pwsh-only mutation probe that
+  reddened exactly the four launcher-traversing specs.
+
 ## Doing
-- M2 Native Claude supervisor, pending independent certification
+- M3 Durable resume and verified halt, pending independent certification
 
 ## Next
 - M3 Durable resume and verified halt, pending independent certification
@@ -24,6 +31,10 @@ The SessionStart hook injects this file into each session.
 
 ## Blocked / needs human
 <!-- gated milestones and decisions, with the risk surface that could not be auto-verified -->
+- Control-plane edit: gate.ts must exempt the night-loop-judge from the Agent worker cap
+  or no milestone can be certified under the default workers=1 contract. The build agent
+  cannot edit its own armed control plane by design. Exact one-hunk fix and follow-ups in
+  decisions/005-judge-exemption-needs-attended-gate-edit.md.
 
 ## Deferred
 - Multi-provider adapters for Codex, Grok, and Agy

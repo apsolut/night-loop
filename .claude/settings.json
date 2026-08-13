@@ -17,17 +17,6 @@
     ]
   },
   "hooks": {
-    "PreToolUse": [
-      {
-        "matcher": "Edit|Write|MultiEdit|Bash|Agent|Workflow",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "bun ${CLAUDE_PROJECT_DIR}/.night-loop/hooks/gate.ts"
-          }
-        ]
-      }
-    ],
     "Stop": [
       {
         "hooks": [
@@ -164,6 +153,17 @@
           {
             "type": "command",
             "command": "bun ${CLAUDE_PROJECT_DIR}/.night-loop/hooks/events.ts"
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Edit|Write|MultiEdit|Bash|Agent|Workflow",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bun ${CLAUDE_PROJECT_DIR}/.night-loop/hooks/gate.ts"
           }
         ]
       }
