@@ -57,13 +57,31 @@ The SessionStart hook injects this file into each session.
   launcher drift stays green); no spec yet proves a red doctor populates remediation;
   footprint spec reads the git index while the documentation spec reads the filesystem.
 
+- M6 Cross-OS matrix, CERTIFIED by night-loop-judge on 2026-08-14 with zero rejections.
+  Evidence: run 31836953767 on 915b55c, attempt 1, all three OS jobs green with per-step
+  success on build, typecheck, lint, unit (24 pass), and e2e (52-spec suite everywhere;
+  2 win32-gated skips on posix legs); executed workflow byte-identical to the committed
+  ci.yml; three doctor artifacts with os/arch/bun 1.3.8/git/missing=0 and no
+  secret-shaped content; red-stays-red proven empirically by runs 31834906413 and
+  31836571868 (green siblings, overall failure) plus a masking grep of the workflow.
+  Getting to green took three portability fixes the matrix itself surfaced: CRLF
+  checkouts on Windows (fixed by .gitattributes), a macOS-only PATH fixture bug in the
+  shim spec (sh in /bin, dirname in /usr/bin), and a nondeterministic bun-location
+  assumption (fixed with a seeded BUN_INSTALL fixture).
+  Judge carried-forward notes for morning review: M5's container clause is NOT
+  discharged by this acceptance (no docker run has ever executed; only the Dockerfile
+  text-grep spec covers it); no ratchet spec binds the CI prerequisite set or the doctor
+  report fields (workflow regression would stay green locally); C1 rests on a single
+  attempt-1 run per OS (no repeat-run evidence on 915b55c); the shim spec does not
+  assert bun's absence from its stripped PATH (vacuous-pass risk on exotic hosts);
+  local Bun is 1.3.14 vs the CI pin 1.3.8.
+
 ## Doing
-- Nothing buildable remains locally. M6 and M7 are hard-blocked.
+- Nothing in flight.
 
 ## Next
-- M6 Cross-OS matrix certification (owner approved the push on 2026-08-14; evidence
-  arrives when the GitHub runners execute the committed matrix)
-- M7 Live Claude smoke (owner approved test authentication on 2026-08-14; buildable)
+- M7 Live Claude smoke (owner approved test authentication on 2026-08-14; buildable;
+  the last open milestone)
 
 ## Blocked / needs human
 <!-- gated milestones and decisions, with the risk surface that could not be auto-verified -->
