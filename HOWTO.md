@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="assets/howto-doctor.png" alt="Midnight repair bay: a terminal reports DOCTOR: GREEN" width="100%">
+</p>
+
 # NIGHT LOOP HOWTO: install, verify, troubleshoot
 
 This guide covers everything `night-loop doctor` can flag: how to install each
