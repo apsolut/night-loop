@@ -542,6 +542,29 @@ export async function doctorNightLoop(context: CommandContext): Promise<Record<s
     plugin: pathExists(join(PLUGIN_ROOT, ".claude-plugin", "plugin.json")),
     hooks: ["gate.ts", "loop.ts", "resume.ts", "events.ts"].every((file) => pathExists(join(PLUGIN_ROOT, ".night-loop", "hooks", file))),
   };
+  const bunOnPath = Bun.which("bun") !== null;
+  const remediation: string[] = [];
+  if (!checks.claude) {
+    remediation.push("Install or update Claude Code to 2.1.139 or newer (https://claude.com/claude-code), then verify with: claude --version");
+  }
+  if (!checks.git) {
+    remediation.push("Install Git (https://git-scm.com/downloads), then verify with: git --version");
+  }
+  if (!checks.bun) {
+    remediation.push("Install Bun 1.3.x. Windows: powershell -c \"irm bun.sh/install.ps1 | iex\". macOS/Linux: curl -fsSL https://bun.sh/install | bash. Then verify with: bun --version");
+  }
+  if (!checks.plugin) {
+    remediation.push("Plugin manifest missing (.claude-plugin/plugin.json). Re-clone the NIGHT LOOP checkout; the install is incomplete or was partially deleted.");
+  }
+  if (!checks.hooks) {
+    remediation.push("One or more control-plane hooks are missing under .night-loop/hooks/. Re-clone the NIGHT LOOP checkout; never hand-edit or delete hook files.");
+  }
+  if (!bunOnPath) {
+    remediation.push("bun is running but not resolvable on PATH. Claude Code hooks invoke bun via PATH and will fail with \"bun: command not found\" until fixed. Reinstall Bun (the installer registers PATH) or add the bun directory to your user PATH, then restart your editor so it inherits the new PATH.");
+  }
+  if (remediation.length > 0) {
+    remediation.push("Full install and troubleshooting guide: HOWTO.md in the NIGHT LOOP repository.");
+  }
   return {
     status: Object.values(checks).every(Boolean) ? "green" : "red",
     checks,
@@ -552,6 +575,8 @@ export async function doctorNightLoop(context: CommandContext): Promise<Record<s
       bun: bun.stdout.trim(),
     },
     platform: { os: process.platform, arch: process.arch },
+    pathResolution: { bunOnPath },
+    remediation,
   };
 }
 

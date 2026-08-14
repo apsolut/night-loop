@@ -640,11 +640,15 @@ describe("Claude-native command surface", () => {
         env: cliEnv(script, log),
       });
       expect(doctor.exitCode).toBe(0);
-      expect(JSON.parse(doctor.stdout)).toMatchObject({
+      const report = JSON.parse(doctor.stdout) as Record<string, unknown>;
+      expect(report).toMatchObject({
         status: "green",
         configured: false,
         checks: { claude: true, git: true, bun: true, plugin: true, hooks: true },
       });
+      // A green report carries an empty remediation list; a red one names each fix.
+      expect(report.remediation).toEqual([]);
+      expect(typeof (report.pathResolution as Record<string, unknown>).bunOnPath).toBe("boolean");
     });
   });
 });
@@ -684,6 +688,30 @@ describe("portable install and CI", () => {
       });
     });
   }, 30000);
+
+  test.if(process.platform === "win32")("the README quick start drives setup and start through stock PowerShell as written", async () => {
+    // Certifies the copy-pasteable quick start itself: the documented command with the
+    // documented flags, through stock powershell.exe, with pwsh nowhere in the chain.
+    // The README assertions bind the executed command to the published one, so either
+    // drifting reddens this spec instead of passing silently.
+    const readme = await Bun.file(join(PRODUCT_ROOT, "README.md")).text();
+    expect(readme).toContain(
+      'powershell -NoProfile -ExecutionPolicy Bypass -File scripts/night-loop.ps1 setup --goal "Build the approved backlog to a testable MVP" --workers 1',
+    );
+    expect(readme).toContain("powershell -NoProfile -ExecutionPolicy Bypass -File scripts/night-loop.ps1 start");
+    await withFixtureRepo("stock powershell quick start", async (root) => {
+      const { script, log } = await fakeClaude(root);
+      const env = cliEnv(script, log);
+      const launcher = ["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", POWERSHELL_LAUNCHER] as const;
+      expect((await runCommand([
+        ...launcher, "setup", "--repo", root, "--goal", "Build the approved backlog to a testable MVP", "--workers", "1",
+      ], { cwd: root, env })).exitCode).toBe(0);
+      const started = await runCommand([...launcher, "start", "--repo", root], { cwd: root, env });
+      expect(started.exitCode).toBe(0);
+      expect(JSON.parse(started.stdout)).toMatchObject({ status: "running", nativeSessionId: SESSION_ID });
+      expect((await runCommand([...launcher, "stop", "--repo", root], { cwd: root, env })).exitCode).toBe(0);
+    });
+  }, 40000);
 
   test.if(pwshHere && shHere)("both quick starts reach the same green doctor through the same Bun core", async () => {
     const reports: Array<Record<string, unknown>> = [];
@@ -806,6 +834,13 @@ describe("portable install and CI", () => {
     expect(readme).toContain("no production credentials");
     expect(readme).toContain("No WSL and no Git Bash are required.");
     expect(readme).toContain("blocks on push, publish, deploy");
+    // The quick start must not require a shell the Requirements omit.
+    expect(readme).not.toMatch(/^pwsh /m);
+    expect(readme).toContain("[HOWTO.md](HOWTO.md)");
+    const howto = await Bun.file(join(PRODUCT_ROOT, "HOWTO.md")).text();
+    expect(howto).toContain("bun: command not found");
+    expect(howto).toContain("-ExecutionPolicy Bypass");
+    expect(howto).toContain("with-bun.sh");
   });
 });
 

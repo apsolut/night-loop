@@ -29,6 +29,9 @@ It is intentionally not a provider router or custom multi-agent control plane.
 
 Claude Code 2.1.154 or newer is recommended if you opt into native workflows.
 
+If anything is missing, `night-loop doctor` reports each failing check with a concrete fix,
+and [HOWTO.md](HOWTO.md) carries the full install and troubleshooting guide.
+
 ## Quick start
 
 Load this checkout as a Claude Code plugin while developing it:
@@ -40,15 +43,17 @@ claude --plugin-dir D:\path\to\night-loop
 Set the attended Night Contract once:
 
 ```powershell
-pwsh -File scripts/night-loop.ps1 setup --goal "Build the approved backlog to a testable MVP" --workers 1
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/night-loop.ps1 setup --goal "Build the approved backlog to a testable MVP" --workers 1
 ```
 
-`pwsh` is PowerShell 7. The built-in `powershell` runs the same launcher identically.
+This is the built-in Windows PowerShell 5.1; no extra shell install is needed. `-ExecutionPolicy Bypass`
+is required because the launcher script is unsigned, and it scopes to this single process only.
+PowerShell 7 (`pwsh -File scripts/night-loop.ps1 ...`) runs the same launcher identically.
 
 Then start the unattended run:
 
 ```powershell
-pwsh -File scripts/night-loop.ps1 start
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/night-loop.ps1 start
 ```
 
 POSIX shells use the same Bun core:

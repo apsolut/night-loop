@@ -38,13 +38,24 @@ The SessionStart hook injects this file into each session.
   path for auth/billing files, and bypassPermissions under night-loop full.
 
 - M5 Portable install and CI, CERTIFIED-except-C2-container-clause-shelved by
-  night-loop-judge on 2026-08-14 after one rejection. First rejection: pwsh was
-  undocumented and the doctor spec skipped on a stock Windows box. Fixed with a
-  powershell.exe carrier that cannot skip on win32, README PowerShell 5.1/7
-  prerequisites, quoted project hook paths, generated `worktree.bgIsolation: none`,
-  Dockerfile pin to bun-v1.3.8 with doctor CMD, and CI that counts missing bun/git.
-  Judge evidence: typecheck, lint, 24 unit, two consecutive 49-pass e2e runs.
-  Literal `docker run` of the Linux fixture remains unexecuted on this host.
+  night-loop-judge on 2026-08-14 after two rejections. First rejection: pwsh was
+  undocumented and the doctor spec skipped on a stock Windows box. Second rejection:
+  the README quick start still invoked pwsh, the non-skippable win32 spec ran doctor
+  instead of the quick-start sequence, the carrier passed -ExecutionPolicy Bypass while
+  no documented command did, and HOWTO.md contradicted the README. Final fixes: README
+  quick start documents the stock powershell command verbatim (with the execution-policy
+  flag explained), a win32-gated spec executes setup/start/stop exactly as published and
+  binds the README literals to the executed command (README pwsh reversion probed red),
+  documentation spec rejects line-leading pwsh and asserts HOWTO.md content, doctor
+  emits remediation plus pathResolution.bunOnPath with green-path assertions, HOWTO.md
+  install-and-troubleshooting guide added. Judge evidence: four consecutive 51-pass e2e
+  runs, spec-title diff proves one addition and zero removals, three mutation probes
+  restored byte-exact. Literal `docker run` of the Linux fixture remains unexecuted here.
+  Judge carried-forward notes for morning review: cli.test.ts:66 hardcodes pwsh without
+  a pwshAvailable gate (red on a stock box without PowerShell 7; CI unaffected since
+  windows-latest ships pwsh); the doc-to-execution binding is one-directional (spec
+  launcher drift stays green); no spec yet proves a red doctor populates remediation;
+  footprint spec reads the git index while the documentation spec reads the filesystem.
 
 ## Doing
 - Nothing buildable remains locally. M6 and M7 are hard-blocked.
