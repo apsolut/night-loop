@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { dirname, join } from "node:path";
-import { existsSync } from "node:fs";
+import { chmodSync, copyFileSync, existsSync, mkdirSync } from "node:fs";
 import { atomicWriteFile, atomicWriteJson, readJsonFile, runCommand, withFixtureRepo } from "../../src/core";
 
 interface FixtureResult {
@@ -778,10 +778,18 @@ describe("portable install and CI", () => {
       atomicWriteFile(join(root, ".night-loop", "progress.md"), "# Progress\n\n## Doing\n- bun lookup Ω\n");
       const sh = Bun.which("sh");
       if (!sh) throw new Error("sh required");
+      // Seed a BUN_INSTALL fixture holding the running bun binary so the shim's
+      // fallback resolution is exercised deterministically on every machine,
+      // instead of depending on where this host happens to have installed bun.
+      const bunName = process.platform === "win32" ? "bun.exe" : "bun";
+      const bunHome = join(root, "bun home");
+      mkdirSync(join(bunHome, "bin"), { recursive: true });
+      copyFileSync(process.execPath, join(bunHome, "bin", bunName));
+      chmodSync(join(bunHome, "bin", bunName), 0o755);
       const runner = join(PRODUCT_ROOT, ".night-loop", "hooks", "with-bun.sh");
       const child = Bun.spawn([sh, runner, "resume.ts"], {
         cwd: root,
-        env: { ...process.env, PATH: dirname(sh), CLAUDE_PROJECT_DIR: root },
+        env: { ...process.env, PATH: dirname(sh), BUN_INSTALL: bunHome, CLAUDE_PROJECT_DIR: root },
         stdin: "pipe",
         stdout: "pipe",
         stderr: "pipe",

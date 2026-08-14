@@ -1,0 +1,10 @@
+# Checkout with LF everywhere: the lint tier treats a carriage return as
+# trailing whitespace, and Windows runners default to autocrlf conversion.
+* text=auto eol=lf
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.woff binary
+*.woff2 binary
