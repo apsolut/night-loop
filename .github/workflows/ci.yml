@@ -30,13 +30,18 @@ jobs:
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Force .night-loop/artifacts | Out-Null
+          $missing = 0
+          foreach ($tool in @("bun", "git")) {
+            if (-not (Get-Command $tool -ErrorAction SilentlyContinue)) { $missing++ }
+          }
           @(
             "os=$([System.Runtime.InteropServices.RuntimeInformation]::OSDescription)"
             "architecture=$([System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture)"
             "bun=$(bun --version)"
             "git=$(git --version)"
-            "missing=0"
+            "missing=$missing"
           ) | Set-Content .night-loop/artifacts/doctor.txt
+          if ($missing -gt 0) { throw "Missing required capabilities: $missing" }
 
       - name: Install locked toolchain
         run: bun install --frozen-lockfile

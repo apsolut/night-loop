@@ -166,6 +166,9 @@ export function generatedSettings(contract: NightContract): Record<string, unkno
       NIGHT_LOOP_MAX_STEPS: String(contract.limits.maxSteps),
       NIGHT_LOOP_WORKERS: String(contract.limits.workers),
     },
+    // Unattended --bg sessions must edit the shared checkout. Without this,
+    // Claude blocks writes until EnterWorktree, which is an execution-time question.
+    worktree: { bgIsolation: "none" },
   };
 }
 

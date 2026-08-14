@@ -38,7 +38,10 @@ describe("Night Contract", () => {
       expect(readJsonFile<NightContract>(join(root, ".night-loop", "state", "contract.json"))).toEqual(contract);
       expect(compileGoal(contract)).toContain("/goal Build the thing");
       expect(compileGoal(contract)).toContain("Do not ask the owner questions");
-      expect(generatedSettings(contract)).toMatchObject({ permissions: { defaultMode: "dontAsk" } });
+      expect(generatedSettings(contract)).toMatchObject({
+        permissions: { defaultMode: "dontAsk" },
+        worktree: { bgIsolation: "none" },
+      });
       const full = generatedSettings({ ...contract, permissions: "full" });
       const fullPermissions = full.permissions as { defaultMode: string; deny: string[] };
       expect(fullPermissions.defaultMode).toBe("bypassPermissions");

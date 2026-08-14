@@ -649,6 +649,137 @@ describe("Claude-native command surface", () => {
   });
 });
 
+describe("portable install and CI", () => {
+  const pwshHere = Boolean(Bun.which("pwsh"));
+  const shHere = Boolean(Bun.which("sh"));
+
+  test.if(pwshHere)("the PowerShell quick start reaches a green doctor in a clean fixture", async () => {
+    await withFixtureRepo("pwsh doctor", async (root) => {
+      const { script, log } = await fakeClaude(root);
+      const doctor = await runCommand([
+        "pwsh", "-NoProfile", "-File", POWERSHELL_LAUNCHER, "doctor", "--repo", root,
+      ], { cwd: root, env: cliEnv(script, log) });
+      expect(doctor.exitCode).toBe(0);
+      expect(JSON.parse(doctor.stdout)).toMatchObject({
+        status: "green",
+        configured: false,
+        checks: { claude: true, git: true, bun: true, plugin: true, hooks: true },
+      });
+    });
+  }, 20000);
+
+  test.if(process.platform === "win32")("the Windows quick start reaches a green doctor with stock PowerShell", async () => {
+    // powershell.exe ships with every Windows install, so this spec can never
+    // silently skip on the platform whose clean fixture it certifies.
+    await withFixtureRepo("stock powershell doctor", async (root) => {
+      const { script, log } = await fakeClaude(root);
+      const doctor = await runCommand([
+        "powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", POWERSHELL_LAUNCHER, "doctor", "--repo", root,
+      ], { cwd: root, env: cliEnv(script, log) });
+      expect(doctor.exitCode).toBe(0);
+      expect(JSON.parse(doctor.stdout)).toMatchObject({
+        status: "green",
+        configured: false,
+        checks: { claude: true, git: true, bun: true, plugin: true, hooks: true },
+      });
+    });
+  }, 30000);
+
+  test.if(pwshHere && shHere)("both quick starts reach the same green doctor through the same Bun core", async () => {
+    const reports: Array<Record<string, unknown>> = [];
+    for (const kind of ["pwsh", "sh"] as const) {
+      await withFixtureRepo(`doctor ${kind}`, async (root) => {
+        const { script, log } = await fakeClaude(root);
+        const launcher = kind === "pwsh"
+          ? ["pwsh", "-NoProfile", "-File", POWERSHELL_LAUNCHER] as const
+          : ["sh", POSIX_LAUNCHER] as const;
+        const doctor = await runCommand([...launcher, "doctor", "--repo", root], { cwd: root, env: cliEnv(script, log) });
+        expect(doctor.exitCode).toBe(0);
+        reports.push(JSON.parse(doctor.stdout) as Record<string, unknown>);
+      });
+    }
+    expect(reports[0]!.status).toBe("green");
+    expect(reports[0]!.checks).toEqual(reports[1]!.checks);
+    expect(reports[0]!.versions).toEqual(reports[1]!.versions);
+  }, 30000);
+
+  test("committed CI defines the three-OS matrix with the fixed toolchain and full suite", async () => {
+    const ci = await Bun.file(join(PRODUCT_ROOT, ".github", "workflows", "ci.yml")).text();
+    for (const os of ["windows-latest", "ubuntu-latest", "macos-latest"]) {
+      expect(ci).toContain(os);
+    }
+    expect(ci).toContain("bun-version: 1.3.8");
+    expect(ci).toContain("bun install --frozen-lockfile");
+    for (const command of ["bun run build", "bun run typecheck", "bun run lint", "bun run test:unit", "bun run test:e2e"]) {
+      expect(ci).toContain(command);
+    }
+    expect(ci).toContain("doctor");
+  });
+
+  test("the plugin manifest resolves every hook relative to the plugin root", async () => {
+    const manifest = readJsonFile<{ hooks: Record<string, Array<{ hooks: Array<{ command: string }> }>> }>(
+      join(PRODUCT_ROOT, "hooks", "hooks.json"),
+    );
+    const commands = Object.values(manifest.hooks)
+      .flat()
+      .flatMap((entry) => entry.hooks.map((hook) => hook.command));
+    expect(commands.length).toBeGreaterThan(5);
+    for (const command of commands) {
+      expect(command.startsWith('bun "${CLAUDE_PLUGIN_ROOT}/')).toBe(true);
+      expect(/[A-Za-z]:[\\/]/.test(command)).toBe(false);
+    }
+  });
+
+  test("project hook commands quote the project-relative script path", async () => {
+    const settings = readJsonFile<{ hooks: Record<string, Array<{ hooks: Array<{ command: string }> }>> }>(
+      join(PRODUCT_ROOT, ".claude", "settings.json"),
+    );
+    const commands = Object.values(settings.hooks)
+      .flat()
+      .flatMap((entry) => entry.hooks.map((hook) => hook.command));
+    expect(commands.length).toBeGreaterThan(5);
+    for (const command of commands) {
+      expect(command.startsWith('bun "${CLAUDE_PROJECT_DIR}/')).toBe(true);
+      expect(/[A-Za-z]:[\\/]/.test(command)).toBe(false);
+    }
+    expect(settings).toMatchObject({ worktree: { bgIsolation: "none" } });
+  });
+
+  test("the Linux container fixture pins the same Bun core and defaults to doctor", async () => {
+    const dockerfile = await Bun.file(join(PRODUCT_ROOT, "Dockerfile")).text();
+    expect(dockerfile).toContain('bash -s "bun-v1.3.8"');
+    expect(dockerfile).toContain('CMD ["sh", "scripts/night-loop.sh", "doctor"]');
+  });
+
+  test("the public install footprint carries no apsolut-agents payload or runtime reference", async () => {
+    const listed = await runCommand(["git", "ls-files"], { cwd: PRODUCT_ROOT });
+    expect(listed.exitCode).toBe(0);
+    const files = listed.stdout.split(/\r?\n/).filter(Boolean);
+    expect(files.some((file) => file.includes("apsolut-agents"))).toBe(false);
+    const runtimeFiles = files.filter((file) =>
+      /^(src|scripts|hooks|skills|agents|\.claude-plugin|\.github)\//.test(file)
+      || /^\.night-loop\/hooks\//.test(file)
+      || file === "package.json"
+      || file === "Dockerfile");
+    expect(runtimeFiles.length).toBeGreaterThan(10);
+    for (const file of runtimeFiles) {
+      const contents = await Bun.file(join(PRODUCT_ROOT, file)).text();
+      expect(contents.includes("apsolut-agents")).toBe(false);
+    }
+  });
+
+  test("documentation presents one session, one arm command, and zero execution-time questions", async () => {
+    const readme = await Bun.file(join(PRODUCT_ROOT, "README.md")).text();
+    expect(readme).toContain("wraps one native Claude Code background session");
+    expect(readme).toContain("scripts/night-loop.ps1 start");
+    expect(readme).toContain("./scripts/night-loop.sh start");
+    expect(readme).toContain("Every command after `setup` is noninteractive.");
+    expect(readme).toContain("no production credentials");
+    expect(readme).toContain("No WSL and no Git Bash are required.");
+    expect(readme).toContain("blocks on push, publish, deploy");
+  });
+});
+
 describe("Question Firewall and immutable gate", () => {
   test("auto-allows ordinary permissions, denies escape actions, and cancels elicitation", async () => {
     await withFixtureRepo("firewall", async (root) => {

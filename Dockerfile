@@ -19,8 +19,8 @@ RUN apt-get update \
  && apt-get install -y --no-install-recommends git curl ca-certificates unzip \
  && rm -rf /var/lib/apt/lists/*
 
-# Bun (runs the TS hooks and the harness)
-RUN curl -fsSL https://bun.sh/install | bash \
+# Bun (runs the TS hooks and the harness), pinned to the same core CI uses
+RUN curl -fsSL https://bun.sh/install | bash -s "bun-v1.3.8" \
  && ln -s /root/.bun/bin/bun /usr/local/bin/bun
 
 # Claude Code CLI
@@ -33,4 +33,5 @@ WORKDIR /work
 # Tighten the runaway cap for unattended runs; raise once you trust a run.
 ENV NIGHT_LOOP_MAX_STEPS=2000
 
-CMD ["bash", "scripts/night-loop.sh"]
+# The container's default command is the POSIX quick-start doctor check.
+CMD ["sh", "scripts/night-loop.sh", "doctor"]

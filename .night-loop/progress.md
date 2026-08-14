@@ -49,6 +49,13 @@ The SessionStart hook injects this file into each session.
 
 ## Blocked / needs human
 <!-- gated milestones and decisions, with the risk surface that could not be auto-verified -->
+- M5 Linux-container clause SHELVED: "A clean Linux container fixture follows the POSIX quick
+  start and reaches the same green doctor check" cannot be auto-verified on this machine (the
+  Docker daemon is absent; verified via the docker API pipe error on 2026-08-14). The risk
+  surface left unverified is actual Linux execution of the doctor path. Discharge it by either
+  running `docker build -t night-loop . && docker run --rm night-loop` (the image now pins Bun
+  1.3.8 and defaults to the doctor command) or letting the committed ubuntu-latest CI job run
+  the same suite; both belong to the M6 external-runner block.
 - Control-plane edit: gate.ts must exempt the night-loop-judge from the Agent worker cap
   or no milestone can be certified under the default workers=1 contract. The build agent
   cannot edit its own armed control plane by design. Exact one-hunk fix and follow-ups in

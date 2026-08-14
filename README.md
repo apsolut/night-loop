@@ -4,6 +4,12 @@
 
 # NIGHT LOOP
 
+> Nobody special is needed. The whole point of NIGHT LOOP's design is that sessions are
+> disposable. State lives in the repo (progress.md, the working tree, .night-loop/state/),
+> not in the session that was killed. The SessionStart hook injects the ledger into any new
+> session, so any Claude Code session in this repo can pick it up, including this one,
+> right now. The "original orchestrator" is gone and doesn't matter.
+
 Claude Code does the work. NIGHT LOOP proves it was safe to leave alone and actually done.
 
 NIGHT LOOP wraps one native Claude Code background session with a Night Contract, a zero-question
@@ -17,6 +23,8 @@ It is intentionally not a provider router or custom multi-agent control plane.
 - Claude Code 2.1.139 or newer, already authenticated with your Claude subscription
 - Bun 1.3.x
 - Git
+- On Windows: PowerShell. The built-in Windows PowerShell 5.1 works; PowerShell 7 (`pwsh`)
+  is also supported. No WSL and no Git Bash are required.
 - A trusted Git repository with a deterministic test harness
 
 Claude Code 2.1.154 or newer is recommended if you opt into native workflows.
@@ -34,6 +42,8 @@ Set the attended Night Contract once:
 ```powershell
 pwsh -File scripts/night-loop.ps1 setup --goal "Build the approved backlog to a testable MVP" --workers 1
 ```
+
+`pwsh` is PowerShell 7. The built-in `powershell` runs the same launcher identically.
 
 Then start the unattended run:
 

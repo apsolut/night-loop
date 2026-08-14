@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
-import { existsSync } from "node:fs";
-import { join } from "node:path";
+import { existsSync, renameSync } from "node:fs";
+import { dirname, join } from "node:path";
 import { atomicWriteFile, readJsonFile, runCommand, withFixtureRepo } from "../../src/core";
 
 const LOOP_HOOK = join(import.meta.dir, "..", "..", ".night-loop", "hooks", "loop.ts");
@@ -53,6 +53,43 @@ describe("durable resume injection", () => {
       hookSpecificOutput: { additionalContext: string; initialUserMessage?: string };
     };
   }
+
+  test("relocating a seeded repository does not change hook behavior", async () => {
+    await withFixtureRepo("relocate", async (root) => {
+      atomicWriteFile(join(root, ".night-loop", "progress.md"), "# Progress\n\n## Doing\n- relocation invariant Ω\n");
+      const git = { cwd: root, env: { ...process.env, GIT_AUTHOR_NAME: "t", GIT_AUTHOR_EMAIL: "t@t", GIT_COMMITTER_NAME: "t", GIT_COMMITTER_EMAIL: "t@t" } };
+      for (const args of [["init", "-q"], ["add", "-A"], ["commit", "-q", "-m", "relocation seed commit"]]) {
+        expect((await runCommand(["git", ...args] as [string, ...string[]], git)).exitCode).toBe(0);
+      }
+      const before = await (async () => {
+        const child = Bun.spawn([process.execPath, RESUME_HOOK], {
+          cwd: root,
+          env: { ...process.env, CLAUDE_PROJECT_DIR: root },
+          stdin: "pipe",
+          stdout: "pipe",
+        });
+        child.stdin.write("{}");
+        child.stdin.end();
+        return JSON.parse(await new Response(child.stdout).text()) as { hookSpecificOutput: { additionalContext: string } };
+      })();
+      expect(before.hookSpecificOutput.additionalContext).toContain("relocation invariant Ω");
+      expect(before.hookSpecificOutput.additionalContext).toContain("relocation seed commit");
+      const relocated = join(dirname(root), "relocated repo Ω");
+      renameSync(root, relocated);
+      const after = await (async () => {
+        const child = Bun.spawn([process.execPath, RESUME_HOOK], {
+          cwd: relocated,
+          env: { ...process.env, CLAUDE_PROJECT_DIR: relocated },
+          stdin: "pipe",
+          stdout: "pipe",
+        });
+        child.stdin.write("{}");
+        child.stdin.end();
+        return JSON.parse(await new Response(child.stdout).text()) as { hookSpecificOutput: { additionalContext: string } };
+      })();
+      expect(after.hookSpecificOutput.additionalContext).toBe(before.hookSpecificOutput.additionalContext);
+    });
+  });
 
   test("a relaunched session receives progress.md and Git state, and auto-resumes only when armed", async () => {
     await withFixtureRepo("resume inject", async (root) => {
