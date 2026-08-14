@@ -37,25 +37,29 @@ The SessionStart hook injects this file into each session.
   and-continue and red-ratchet branches. Judge notes for morning review: gate's allow
   path for auth/billing files, and bypassPermissions under night-loop full.
 
+- M5 Portable install and CI, CERTIFIED-except-C2-container-clause-shelved by
+  night-loop-judge on 2026-08-14 after one rejection. First rejection: pwsh was
+  undocumented and the doctor spec skipped on a stock Windows box. Fixed with a
+  powershell.exe carrier that cannot skip on win32, README PowerShell 5.1/7
+  prerequisites, quoted project hook paths, generated `worktree.bgIsolation: none`,
+  Dockerfile pin to bun-v1.3.8 with doctor CMD, and CI that counts missing bun/git.
+  Judge evidence: typecheck, lint, 24 unit, two consecutive 49-pass e2e runs.
+  Literal `docker run` of the Linux fixture remains unexecuted on this host.
+
 ## Doing
-- M5 Portable install and CI, pending independent certification
+- Nothing buildable remains locally. M6 and M7 are hard-blocked.
 
 ## Next
-- M3 Durable resume and verified halt, pending independent certification
-- M4 Unattended safety policy, pending independent certification
-- M5 Portable install and CI, pending independent certification
 - M6 Cross-OS matrix certification (hard-block until external runners execute)
 - M7 Live Claude smoke (hard-block until test authentication is approved)
 
 ## Blocked / needs human
 <!-- gated milestones and decisions, with the risk surface that could not be auto-verified -->
-- M5 Linux-container clause SHELVED: "A clean Linux container fixture follows the POSIX quick
-  start and reaches the same green doctor check" cannot be auto-verified on this machine (the
-  Docker daemon is absent; verified via the docker API pipe error on 2026-08-14). The risk
-  surface left unverified is actual Linux execution of the doctor path. Discharge it by either
-  running `docker build -t night-loop . && docker run --rm night-loop` (the image now pins Bun
-  1.3.8 and defaults to the doctor command) or letting the committed ubuntu-latest CI job run
-  the same suite; both belong to the M6 external-runner block.
+- M5 C2 container execution SHELVED to M6: Docker Desktop is not running here. The
+  Dockerfile fixture is pinned to bun-v1.3.8 and defaults to doctor, but a literal
+  Linux container run is deferred to external runners.
+- M6 Cross-OS matrix: needs windows-latest, ubuntu-latest, and macos-latest GitHub runners.
+- M7 Live Claude smoke: needs owner-approved test authentication.
 - Control-plane edit: gate.ts must exempt the night-loop-judge from the Agent worker cap
   or no milestone can be certified under the default workers=1 contract. The build agent
   cannot edit its own armed control plane by design. Exact one-hunk fix and follow-ups in
