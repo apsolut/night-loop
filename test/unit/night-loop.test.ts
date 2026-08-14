@@ -39,6 +39,10 @@ describe("Night Contract", () => {
       expect(compileGoal(contract)).toContain("/goal Build the thing");
       expect(compileGoal(contract)).toContain("Do not ask the owner questions");
       expect(generatedSettings(contract)).toMatchObject({ permissions: { defaultMode: "dontAsk" } });
+      const full = generatedSettings({ ...contract, permissions: "full" });
+      const fullPermissions = full.permissions as { defaultMode: string; deny: string[] };
+      expect(fullPermissions.defaultMode).toBe("bypassPermissions");
+      expect(fullPermissions.deny).toEqual(expect.arrayContaining(["Skill(batch)", "Skill(autofix-pr)", "Agent"]));
     });
   });
 

@@ -74,6 +74,61 @@ describe("durable resume injection", () => {
   });
 });
 
+describe("shelve and continue", () => {
+  const GATE_HOOK = join(import.meta.dir, "..", "..", ".night-loop", "hooks", "gate.ts");
+
+  test("a green ratchet after a denied external action continues the loop and instructs shelving", async () => {
+    await withFixtureRepo("continue", async (root) => {
+      seedHarness(root);
+      atomicWriteFile(join(root, ".night-loop", "state", "ACTIVE"), "run\n");
+      const gate = Bun.spawn([process.execPath, GATE_HOOK], {
+        cwd: root,
+        env: { ...process.env, CLAUDE_PROJECT_DIR: root },
+        stdin: "pipe",
+        stdout: "pipe",
+      });
+      gate.stdin.write(JSON.stringify({ tool_name: "Bash", tool_input: { command: "git push origin main" } }));
+      gate.stdin.end();
+      expect(JSON.parse(await new Response(gate.stdout).text())).toMatchObject({
+        hookSpecificOutput: { permissionDecision: "deny" },
+      });
+      expect(await gate.exited).toBe(0);
+      const result = await invoke(root);
+      expect(result.exitCode).toBe(0);
+      const decision = JSON.parse(result.stdout) as { decision: string; reason: string };
+      expect(decision.decision).toBe("block");
+      expect(decision.reason).toContain("Ratchet green");
+      expect(decision.reason).toContain("SHELVE any milestone");
+      expect(decision.reason).toContain("record it under Blocked");
+      expect(existsSync(join(root, ".night-loop", "state", "HALTED"))).toBe(false);
+      expect(existsSync(join(root, ".night-loop", "state", "ACTIVE"))).toBe(true);
+      const tape = await Bun.file(join(root, ".night-loop", "state", "events.jsonl")).text();
+      expect(tape).toContain("policy.blocked");
+      expect(tape).toContain("stop.continued");
+    });
+  });
+
+  test("a red ratchet blocks new work with the failing command and never halts the loop", async () => {
+    await withFixtureRepo("red ratchet", async (root) => {
+      seedHarness(root);
+      atomicWriteFile(join(root, ".night-loop", "ratchet.json"), `${JSON.stringify({
+        hard: [{ display: "seed red", argv: ["bun", "fail.ts"] }],
+        acceptedE2e: [],
+      }, null, 2)}\n`);
+      atomicWriteFile(join(root, ".night-loop", "state", "ACTIVE"), "run\n");
+      const result = await invoke(root);
+      expect(result.exitCode).toBe(0);
+      const decision = JSON.parse(result.stdout) as { decision: string; reason: string };
+      expect(decision.decision).toBe("block");
+      expect(decision.reason).toContain("Ratchet is RED");
+      expect(decision.reason).toContain("seed red");
+      expect(decision.reason).toContain("revert");
+      expect(existsSync(join(root, ".night-loop", "state", "HALTED"))).toBe(false);
+      expect(existsSync(join(root, ".night-loop", "state", "ACTIVE"))).toBe(true);
+    });
+  });
+});
+
 describe("verified halt states", () => {
   test("done requires a green full harness", async () => {
     await withFixtureRepo("done", async (root) => {

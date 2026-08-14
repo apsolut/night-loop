@@ -115,7 +115,7 @@ export function writeContract(
 ): NightContract {
   const goal = input.goal.trim();
   if (!goal) throw new Error("setup requires a non-empty goal");
-  if (/(?:sk-ant-|api[_ -]?key\s*[:=]|auth[_ -]?token\s*[:=]|password\s*[:=]|-----BEGIN [A-Z ]+PRIVATE KEY-----)/i.test(goal)) {
+  if (/(?:sk-ant-|api[_ -]?key\s*[:=]|auth[_ -]?token\s*[:=]|password\s*[:=]|ghp_[A-Za-z0-9]{10,}|AKIA[0-9A-Z]{16}|-----BEGIN [A-Z ]+PRIVATE KEY-----)/i.test(goal)) {
     throw new Error("The goal appears to contain a credential. Store only test credential references, never values");
   }
   const contract: NightContract = {
@@ -571,6 +571,10 @@ export function morningReceipt(context: CommandContext): { markdown: string; jso
   const halted = pathExists(haltedPath) ? readFileSync(haltedPath, "utf8").trim() : run?.status ?? "not_started";
   const backlog = readFileSync(loopPath(context.repo, "backlog.yaml"), "utf8");
   const progress = readFileSync(loopPath(context.repo, "progress.md"), "utf8");
+  const reviewPath = loopPath(context.repo, "state", "REVIEW");
+  const securityReview = pathExists(reviewPath)
+    ? readFileSync(reviewPath, "utf8").split(/\r?\n/).map((line) => line.trim()).filter(Boolean)
+    : [];
   const criteria = yamlAcceptance(backlog);
   const blocked = events.filter((event) => /blocked|denied|interaction/.test(event.type));
   const recoveries = events.filter((event) => /resume|relaunch|rejected|failure/.test(event.type));
@@ -584,6 +588,7 @@ export function morningReceipt(context: CommandContext): { markdown: string; jso
     permissions: run?.permissions ?? contract.permissions,
     limits: run?.limits ?? contract.limits,
     ledger: { verified, events: events.length, head: events.at(-1)?.hash ?? "GENESIS" },
+    securityReview,
     criteria,
     tests,
     verdicts,
@@ -600,6 +605,12 @@ export function morningReceipt(context: CommandContext): { markdown: string; jso
     `Run: \`${run?.runId ?? "not-started"}\``,
     `Permission profile: \`${run?.permissions ?? contract.permissions}\``,
     `Ledger: **${verified ? "VERIFIED" : "TAMPERED"}**, ${events.length} events, head \`${receipt.ledger.head}\``,
+    "",
+    "## Review before production cutover",
+    "",
+    ...(securityReview.length
+      ? securityReview.map((note) => `- [ ] ${markdownEscape(note)}`)
+      : ["- none recorded: no security-surface file was touched this run"]),
     "",
     "## Acceptance criteria",
     "",

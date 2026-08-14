@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { dirname, join } from "node:path";
 import { existsSync } from "node:fs";
-import { atomicWriteFile, readJsonFile, runCommand, withFixtureRepo } from "../../src/core";
+import { atomicWriteFile, atomicWriteJson, readJsonFile, runCommand, withFixtureRepo } from "../../src/core";
 
 interface FixtureResult {
   status: "success" | "interaction_required";
@@ -448,7 +448,13 @@ describe("Claude-native command surface", () => {
       const output = JSON.parse(morning.stdout) as { markdown: string; json: string; status: string };
       expect(existsSync(output.markdown)).toBe(true);
       expect(existsSync(output.json)).toBe(true);
-      expect(await Bun.file(output.markdown).text()).toContain("Ledger: **VERIFIED**");
+      const digest = await Bun.file(output.markdown).text();
+      expect(digest).toContain("Ledger: **VERIFIED**");
+      const receipt = await Bun.file(output.json).text();
+      const eventsLog = await Bun.file(join(root, ".night-loop", "state", "events.jsonl")).text();
+      for (const capture of [digest, receipt, eventsLog]) {
+        expect(capture).not.toContain("must-not-reach-child");
+      }
     });
   });
 
@@ -667,6 +673,12 @@ describe("Question Firewall and immutable gate", () => {
       expect(JSON.parse(await new Response(elicitationChild.stdout).text())).toMatchObject({
         hookSpecificOutput: { action: "cancel" },
       });
+      expect(await elicitationChild.exited).toBe(0);
+      const missingAuthority = (await Bun.file(join(root, ".night-loop", "state", "events.jsonl")).text())
+        .trim().split(/\r?\n/).map((line) => JSON.parse(line) as { type: string; data: Record<string, unknown> })
+        .find((event) => event.type === "blocked.missing_authority");
+      expect(missingAuthority).toBeDefined();
+      expect(missingAuthority!.data).toMatchObject({ server: "seed", action: "shelve_and_continue" });
 
       const gateChild = Bun.spawn([process.execPath, GATE_HOOK], { cwd: root, env: { ...process.env, ...env }, stdin: "pipe", stdout: "pipe" });
       gateChild.stdin.write(JSON.stringify({ tool_name: "Bash", tool_input: { command: "Remove-Item target -Recurse -Force" } }));
@@ -701,6 +713,91 @@ describe("Question Firewall and immutable gate", () => {
     });
   });
 
+  test("no tracked repository file carries a credential value", async () => {
+    const listed = await runCommand(["git", "ls-files"], { cwd: PRODUCT_ROOT });
+    expect(listed.exitCode).toBe(0);
+    const files = listed.stdout.split(/\r?\n/).filter(Boolean)
+      .filter((file) => !/\.(png|jpg|jpeg|gif|ico|woff2?)$/i.test(file));
+    expect(files.length).toBeGreaterThan(10);
+    const credentialPatterns = [
+      /sk-ant-[A-Za-z0-9_-]{16,}/,
+      /AKIA[0-9A-Z]{16}/,
+      /-----BEGIN [A-Z ]*PRIVATE KEY-----\s*\r?\n[A-Za-z0-9+/=]{40,}/,
+      /ghp_[A-Za-z0-9]{36}/,
+    ];
+    for (const file of files) {
+      const contents = await Bun.file(join(PRODUCT_ROOT, file)).text();
+      for (const pattern of credentialPatterns) {
+        expect(pattern.test(contents)).toBe(false);
+      }
+    }
+  }, 20000);
+
+  test("a security-surface edit is allowed, flagged for review, and lands in the morning digest", async () => {
+    await withFixtureRepo("security surface", async (root) => {
+      const { script, log } = await fakeClaude(root);
+      const env = cliEnv(script, log);
+      const child = Bun.spawn([process.execPath, GATE_HOOK], {
+        cwd: root,
+        env: { ...process.env, CLAUDE_PROJECT_DIR: root },
+        stdin: "pipe",
+        stdout: "pipe",
+      });
+      child.stdin.write(JSON.stringify({
+        tool_name: "Edit",
+        tool_input: { file_path: join(root, "src", "auth", "login.ts") },
+      }));
+      child.stdin.end();
+      const decision = JSON.parse(await new Response(child.stdout).text()) as {
+        hookSpecificOutput: { permissionDecision: string; additionalContext?: string };
+      };
+      expect(decision.hookSpecificOutput.permissionDecision).toBe("allow");
+      expect(decision.hookSpecificOutput.additionalContext).toContain("TEST credentials");
+      expect(decision.hookSpecificOutput.additionalContext).toContain("human review before production cutover");
+      const review = await Bun.file(join(root, ".night-loop", "state", "REVIEW")).text();
+      expect(review).toContain("security surface touched");
+      expect(review).toContain("login.ts");
+      atomicWriteFile(join(root, ".night-loop", "backlog.yaml"), '- id: M4\n  acceptance:\n    - "Security note surfaces"\n');
+      atomicWriteFile(join(root, ".night-loop", "progress.md"), "# Progress\n");
+      await runCommand([process.execPath, CLI, "setup", "--repo", root, "--goal", "Digest"], { cwd: root, env });
+      const morning = await runCommand([process.execPath, CLI, "morning", "--repo", root], { cwd: root, env });
+      expect(morning.exitCode).toBe(0);
+      const output = JSON.parse(morning.stdout) as { markdown: string; json: string };
+      const digest = await Bun.file(output.markdown).text();
+      expect(digest).toContain("## Review before production cutover");
+      expect(digest).toContain("login.ts");
+      const receipt = await Bun.file(output.json).text();
+      expect(receipt).toContain("security surface touched");
+    });
+  });
+
+  test("escape actions stay denied under a seeded full-permission contract", async () => {
+    await withFixtureRepo("full still jailed", async (root) => {
+      atomicWriteJson(join(root, ".night-loop", "state", "contract.json"), {
+        schemaVersion: 1,
+        goal: "Full permission run",
+        permissions: "full",
+        limits: { maxSteps: 2000, maxRelaunches: 20, workers: 1 },
+        createdAt: "2026-08-13T20:00:00.000Z",
+      });
+      for (const command of ["git push origin main", "npm publish", "curl https://example.test/x"]) {
+        const child = Bun.spawn([process.execPath, GATE_HOOK], {
+          cwd: root,
+          env: { ...process.env, CLAUDE_PROJECT_DIR: root },
+          stdin: "pipe",
+          stdout: "pipe",
+        });
+        child.stdin.write(JSON.stringify({ tool_name: "Bash", tool_input: { command } }));
+        child.stdin.end();
+        expect(JSON.parse(await new Response(child.stdout).text())).toMatchObject({
+          hookSpecificOutput: { permissionDecision: "deny" },
+        });
+      }
+      const tape = await Bun.file(join(root, ".night-loop", "state", "events.jsonl")).text();
+      expect(tape).toContain('"action":"shelve_and_continue"');
+    });
+  });
+
   test("the gate records every seeded external action and continues", async () => {
     await withFixtureRepo("gate matrix", async (root) => {
       const commands = [
@@ -726,6 +823,7 @@ describe("Question Firewall and immutable gate", () => {
         expect(JSON.parse(await new Response(child.stdout).text())).toMatchObject({
           hookSpecificOutput: { permissionDecision: "deny" },
         });
+        expect(await child.exited).toBe(0);
       }
       const tape = await Bun.file(join(root, ".night-loop", "state", "events.jsonl")).text();
       expect(tape.match(/policy\.blocked/g)).toHaveLength(commands.length);

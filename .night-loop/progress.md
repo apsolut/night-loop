@@ -28,8 +28,17 @@ The SessionStart hook injects this file into each session.
   argv carries the plugin dir, plugin manifest binds resume/loop/gate/events, and exit
   codes documented in README.
 
+- M4 Unattended safety policy, CERTIFIED by night-loop-judge on 2026-08-14 after one
+  rejection. New product path: the morning digest now carries a "Review before production
+  cutover" section fed by the gate's REVIEW marker. New carriers: security-surface edit
+  allowed-and-flagged into the digest, escape denial under a full contract, repository
+  credential scan over git ls-files, secret-free receipt and event tape, structured
+  blocked.missing_authority event, and the first specs to reach the Stop hook's shelve-
+  and-continue and red-ratchet branches. Judge notes for morning review: gate's allow
+  path for auth/billing files, and bypassPermissions under night-loop full.
+
 ## Doing
-- M4 Unattended safety policy, pending independent certification
+- M5 Portable install and CI, pending independent certification
 
 ## Next
 - M3 Durable resume and verified halt, pending independent certification
