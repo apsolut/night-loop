@@ -7,7 +7,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bun \"${CLAUDE_PLUGIN_ROOT}/.night-loop/hooks/gate.ts\""
+            "command": "sh \"${CLAUDE_PLUGIN_ROOT}/.night-loop/hooks/with-bun.sh\" gate.ts"
           }
         ]
       }
@@ -17,7 +17,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bun \"${CLAUDE_PLUGIN_ROOT}/.night-loop/hooks/loop.ts\""
+            "command": "sh \"${CLAUDE_PLUGIN_ROOT}/.night-loop/hooks/with-bun.sh\" loop.ts"
           }
         ]
       }
@@ -27,7 +27,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bun \"${CLAUDE_PLUGIN_ROOT}/.night-loop/hooks/resume.ts\""
+            "command": "sh \"${CLAUDE_PLUGIN_ROOT}/.night-loop/hooks/with-bun.sh\" resume.ts"
           }
         ]
       }
@@ -37,7 +37,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bun \"${CLAUDE_PLUGIN_ROOT}/.night-loop/hooks/events.ts\""
+            "command": "sh \"${CLAUDE_PLUGIN_ROOT}/.night-loop/hooks/with-bun.sh\" events.ts"
           }
         ]
       }
@@ -47,7 +47,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bun \"${CLAUDE_PLUGIN_ROOT}/.night-loop/hooks/events.ts\""
+            "command": "sh \"${CLAUDE_PLUGIN_ROOT}/.night-loop/hooks/with-bun.sh\" events.ts"
           }
         ]
       }
@@ -57,7 +57,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bun \"${CLAUDE_PLUGIN_ROOT}/.night-loop/hooks/events.ts\""
+            "command": "sh \"${CLAUDE_PLUGIN_ROOT}/.night-loop/hooks/with-bun.sh\" events.ts"
           }
         ]
       }
@@ -67,7 +67,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bun \"${CLAUDE_PLUGIN_ROOT}/.night-loop/hooks/events.ts\""
+            "command": "sh \"${CLAUDE_PLUGIN_ROOT}/.night-loop/hooks/with-bun.sh\" events.ts"
           }
         ]
       }
@@ -77,7 +77,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bun \"${CLAUDE_PLUGIN_ROOT}/.night-loop/hooks/events.ts\""
+            "command": "sh \"${CLAUDE_PLUGIN_ROOT}/.night-loop/hooks/with-bun.sh\" events.ts"
           }
         ]
       }
@@ -87,7 +87,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bun \"${CLAUDE_PLUGIN_ROOT}/.night-loop/hooks/events.ts\""
+            "command": "sh \"${CLAUDE_PLUGIN_ROOT}/.night-loop/hooks/with-bun.sh\" events.ts"
           }
         ]
       }
@@ -97,7 +97,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bun \"${CLAUDE_PLUGIN_ROOT}/.night-loop/hooks/events.ts\""
+            "command": "sh \"${CLAUDE_PLUGIN_ROOT}/.night-loop/hooks/with-bun.sh\" events.ts"
           }
         ]
       }
@@ -107,7 +107,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bun \"${CLAUDE_PLUGIN_ROOT}/.night-loop/hooks/events.ts\""
+            "command": "sh \"${CLAUDE_PLUGIN_ROOT}/.night-loop/hooks/with-bun.sh\" events.ts"
           }
         ]
       }
@@ -117,7 +117,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bun \"${CLAUDE_PLUGIN_ROOT}/.night-loop/hooks/events.ts\""
+            "command": "sh \"${CLAUDE_PLUGIN_ROOT}/.night-loop/hooks/with-bun.sh\" events.ts"
           }
         ]
       }
@@ -127,7 +127,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bun \"${CLAUDE_PLUGIN_ROOT}/.night-loop/hooks/events.ts\""
+            "command": "sh \"${CLAUDE_PLUGIN_ROOT}/.night-loop/hooks/with-bun.sh\" events.ts"
           }
         ]
       }
@@ -137,7 +137,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bun \"${CLAUDE_PLUGIN_ROOT}/.night-loop/hooks/events.ts\""
+            "command": "sh \"${CLAUDE_PLUGIN_ROOT}/.night-loop/hooks/with-bun.sh\" events.ts"
           }
         ]
       }
@@ -147,7 +147,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bun \"${CLAUDE_PLUGIN_ROOT}/.night-loop/hooks/events.ts\""
+            "command": "sh \"${CLAUDE_PLUGIN_ROOT}/.night-loop/hooks/with-bun.sh\" events.ts"
           }
         ]
       }

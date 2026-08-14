@@ -73,3 +73,5 @@ The SessionStart hook injects this file into each session.
 ## Discovered (from triage)
 - 2026-08-13: The prior M1 tracked-workspace contract was invalidated. `.apsolut-agents/` must remain local and ignored.
 - 2026-08-13: `.apsolut-agents/` is private contributor tooling used to build NIGHT LOOP, not product scope. The former M1-M5 multi-agent chain was replaced before implementation.
+- 2026-08-14: Claude Git Bash has no bun on PATH, so SessionStart/PreToolUse/Stop printed
+  `bun: command not found`. Hooks now go through `.night-loop/hooks/with-bun.sh`.

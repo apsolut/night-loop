@@ -531,7 +531,7 @@ describe("Claude-native command surface", () => {
     for (const [event, hookFile] of Object.entries(bindings)) {
       const commands = (manifest.hooks[event] ?? []).flatMap((entry) => entry.hooks.map((hook) => hook.command));
       expect(commands.some((command) =>
-        command.includes("${CLAUDE_PLUGIN_ROOT}") && command.includes(`.night-loop/hooks/${hookFile}`))).toBe(true);
+        command.includes("${CLAUDE_PLUGIN_ROOT}") && command.includes("with-bun.sh") && command.endsWith(hookFile))).toBe(true);
     }
   });
 
@@ -725,7 +725,7 @@ describe("portable install and CI", () => {
       .flatMap((entry) => entry.hooks.map((hook) => hook.command));
     expect(commands.length).toBeGreaterThan(5);
     for (const command of commands) {
-      expect(command.startsWith('bun "${CLAUDE_PLUGIN_ROOT}/')).toBe(true);
+      expect(command.startsWith('sh "${CLAUDE_PLUGIN_ROOT}/.night-loop/hooks/with-bun.sh" ')).toBe(true);
       expect(/[A-Za-z]:[\\/]/.test(command)).toBe(false);
     }
   });
@@ -739,11 +739,40 @@ describe("portable install and CI", () => {
       .flatMap((entry) => entry.hooks.map((hook) => hook.command));
     expect(commands.length).toBeGreaterThan(5);
     for (const command of commands) {
-      expect(command.startsWith('bun "${CLAUDE_PROJECT_DIR}/')).toBe(true);
+      expect(command.startsWith('sh "${CLAUDE_PROJECT_DIR}/.night-loop/hooks/with-bun.sh" ')).toBe(true);
       expect(/[A-Za-z]:[\\/]/.test(command)).toBe(false);
     }
     expect(settings).toMatchObject({ worktree: { bgIsolation: "none" } });
   });
+
+  test.if(Boolean(Bun.which("sh")))("hooks still run when bun is missing from PATH", async () => {
+    await withFixtureRepo("hook bun lookup", async (root) => {
+      atomicWriteFile(join(root, ".night-loop", "progress.md"), "# Progress\n\n## Doing\n- bun lookup Ω\n");
+      const sh = Bun.which("sh");
+      if (!sh) throw new Error("sh required");
+      const runner = join(PRODUCT_ROOT, ".night-loop", "hooks", "with-bun.sh");
+      const child = Bun.spawn([sh, runner, "resume.ts"], {
+        cwd: root,
+        env: { ...process.env, PATH: dirname(sh), CLAUDE_PROJECT_DIR: root },
+        stdin: "pipe",
+        stdout: "pipe",
+        stderr: "pipe",
+      });
+      child.stdin.write("{}");
+      child.stdin.end();
+      const [stdout, stderr, exitCode] = await Promise.all([
+        new Response(child.stdout).text(),
+        new Response(child.stderr).text(),
+        child.exited,
+      ]);
+      expect(exitCode).toBe(0);
+      expect(stderr).not.toContain("bun: command not found");
+      expect(JSON.parse(stdout)).toMatchObject({
+        hookSpecificOutput: { hookEventName: "SessionStart" },
+      });
+      expect(JSON.parse(stdout).hookSpecificOutput.additionalContext).toContain("bun lookup Ω");
+    });
+  }, 20000);
 
   test("the Linux container fixture pins the same Bun core and defaults to doctor", async () => {
     const dockerfile = await Bun.file(join(PRODUCT_ROOT, "Dockerfile")).text();
