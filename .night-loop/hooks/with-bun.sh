@@ -41,4 +41,10 @@ find_bun() {
 }
 
 BUN=$(find_bun)
+# The hook it launches spawns "bun run ..." harness commands resolved from PATH
+# (lib.ts runCommand, shell:false), so a bun found only by fallback must be put
+# on PATH or every ratchet spawn inside the Stop hook fails on a clean machine.
+BUN_DIR=$(dirname -- "$BUN")
+PATH="$BUN_DIR:$PATH"
+export PATH
 exec "$BUN" "$HOOK_DIR/$HOOK" "$@"
