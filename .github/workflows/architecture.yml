@@ -1,0 +1,18 @@
+# Advisory architecture regression gate (decision 008). Kept out of ci.yml so
+# the judge-certified push matrix stays byte-identical to its carriers.
+name: Architecture
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  enola:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: enola-labs/enola-action@v1
