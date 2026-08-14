@@ -79,6 +79,12 @@ or control-plane changes.
 
 Every command after `setup` is noninteractive.
 
+Exit codes: `0` success, including classified terminal states such as `interaction_required`
+reported in the JSON output; `1` a red `doctor` report; `2` invalid arguments or a refused
+command, with a JSON `invalid_arguments` object on stderr; `70` a provider launch or resume
+failure. The seeded e2e `fixture` subcommand exits `42` when it classifies an interaction
+request, so the sentinel is itself testable.
+
 ## The trust stack
 
 1. The Night Contract compiles the attended goal and deterministic defaults into the initial

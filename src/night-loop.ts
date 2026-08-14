@@ -191,6 +191,27 @@ function supervisorStatePath(repo: string): string {
   return loopPath(repo, "state", "supervisor.json");
 }
 
+function supervisorPidPath(repo: string): string {
+  return loopPath(repo, "state", "SUPERVISOR_PID");
+}
+
+async function terminateSupervisor(context: CommandContext, updatedAt: string): Promise<void> {
+  const pidPath = supervisorPidPath(context.repo);
+  if (!pathExists(pidPath)) return;
+  const pid = Number(readFileSync(pidPath, "utf8").trim());
+  if (!Number.isInteger(pid) || pid <= 0) {
+    rmSync(pidPath, { force: true });
+    return;
+  }
+  try { process.kill(pid); } catch {}
+  for (let attempt = 0; attempt < 500; attempt += 1) {
+    try { process.kill(pid, 0); } catch { break; }
+    await Bun.sleep(10);
+  }
+  rmSync(pidPath, { force: true });
+  appendLedgerEvent(eventPath(context.repo), "supervisor.stopped", { pid }, updatedAt);
+}
+
 function readStep(repo: string): number {
   try { return Number(readFileSync(loopPath(repo, "state", "STEP"), "utf8").trim()) || 0; } catch { return 0; }
 }
@@ -327,6 +348,7 @@ export async function startNightLoop(
       detached: true,
     });
     supervisor.unref();
+    atomicWriteFile(supervisorPidPath(context.repo), `${supervisor.pid}\n`);
     appendLedgerEvent(eventPath(context.repo), "supervisor.started", { pid: supervisor.pid }, state.updatedAt);
   }
   return state;
@@ -374,6 +396,7 @@ export async function stopNightLoop(context: CommandContext): Promise<RunState> 
   rmSync(activeMarker(context.repo), { force: true });
   state.status = "stopped";
   state.updatedAt = timestamp(context);
+  await terminateSupervisor(context, state.updatedAt);
   writeRun(context.repo, state);
   appendLedgerEvent(eventPath(context.repo), "run.stopped", { nativeSessionId: sessionId ?? null }, state.updatedAt);
   return state;
@@ -414,6 +437,15 @@ export async function resumeNightLoop(context: CommandContext): Promise<RunState
   return state;
 }
 
+async function terminateNativeSession(context: CommandContext, state: RunState): Promise<void> {
+  if (!state.nativeSessionId) return;
+  const result = await runClaude(context, ["stop", state.nativeSessionId]);
+  appendLedgerEvent(eventPath(context.repo), "supervisor.terminated_session", {
+    nativeSessionId: state.nativeSessionId,
+    exitCode: result.exitCode,
+  }, state.updatedAt);
+}
+
 export async function superviseNightLoop(
   context: CommandContext,
   options: { once?: boolean; delay?: (milliseconds: number) => Promise<void> } = {},
@@ -429,6 +461,7 @@ export async function superviseNightLoop(
       const reason = readFileSync(haltedPath, "utf8").trim();
       state.status = reason === "done" || reason === "blocked" || reason === "budget" ? reason : "stopped";
       state.updatedAt = timestamp(context);
+      await terminateNativeSession(context, state);
       rmSync(activeMarker(context.repo), { force: true });
       writeRun(context.repo, state);
       return;
@@ -447,6 +480,7 @@ export async function superviseNightLoop(
         state.status = "budget";
         state.updatedAt = timestamp(context);
         atomicWriteFile(haltedPath, "budget\n");
+        await terminateNativeSession(context, state);
         rmSync(activeMarker(context.repo), { force: true });
         writeRun(context.repo, state);
         appendLedgerEvent(eventPath(context.repo), "supervisor.exhausted", { relaunches: saved.relaunches }, state.updatedAt);
@@ -464,6 +498,12 @@ export async function superviseNightLoop(
       await delay(process.env.NIGHT_LOOP_TEST_BACKOFF_MS === undefined
         ? backoffSeconds * 1000
         : Number(process.env.NIGHT_LOOP_TEST_BACKOFF_MS));
+      if (!existsSync(activeMarker(context.repo)) || pathExists(haltedPath)) {
+        appendLedgerEvent(eventPath(context.repo), "supervisor.recovery_cancelled", {
+          reason: "stopped_or_halted_during_backoff",
+        }, timestamp(context));
+        return;
+      }
       await resumeNightLoop(context);
     } else {
       atomicWriteJson(supervisorStatePath(context.repo), saved);

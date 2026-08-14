@@ -1,9 +1,10 @@
 import { describe, expect, test } from "bun:test";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
-import { atomicWriteFile, readJsonFile, withFixtureRepo } from "../../src/core";
+import { atomicWriteFile, readJsonFile, runCommand, withFixtureRepo } from "../../src/core";
 
 const LOOP_HOOK = join(import.meta.dir, "..", "..", ".night-loop", "hooks", "loop.ts");
+const RESUME_HOOK = join(import.meta.dir, "..", "..", ".night-loop", "hooks", "resume.ts");
 
 async function invoke(root: string, env: Record<string, string> = {}) {
   const child = Bun.spawn([process.execPath, LOOP_HOOK], {
@@ -37,6 +38,41 @@ function seedHarness(root: string, screenshotPass = true): void {
     acceptedE2e: [],
   }, null, 2)}\n`);
 }
+
+describe("durable resume injection", () => {
+  async function invokeResume(root: string) {
+    const child = Bun.spawn([process.execPath, RESUME_HOOK], {
+      cwd: root,
+      env: { ...process.env, CLAUDE_PROJECT_DIR: root },
+      stdin: "pipe",
+      stdout: "pipe",
+    });
+    child.stdin.write("{}");
+    child.stdin.end();
+    return JSON.parse(await new Response(child.stdout).text()) as {
+      hookSpecificOutput: { additionalContext: string; initialUserMessage?: string };
+    };
+  }
+
+  test("a relaunched session receives progress.md and Git state, and auto-resumes only when armed", async () => {
+    await withFixtureRepo("resume inject", async (root) => {
+      atomicWriteFile(join(root, ".night-loop", "progress.md"), "# Progress\n\n## Doing\n- M3 durable resume Ω\n");
+      const git = { cwd: root, env: { ...process.env, GIT_AUTHOR_NAME: "t", GIT_AUTHOR_EMAIL: "t@t", GIT_COMMITTER_NAME: "t", GIT_COMMITTER_EMAIL: "t@t" } };
+      for (const args of [["init", "-q"], ["add", "-A"], ["commit", "-q", "-m", "seeded backlog item"]]) {
+        expect((await runCommand(["git", ...args] as [string, ...string[]], git)).exitCode).toBe(0);
+      }
+      const unarmed = await invokeResume(root);
+      expect(unarmed.hookSpecificOutput.additionalContext).toContain("M3 durable resume Ω");
+      expect(unarmed.hookSpecificOutput.additionalContext).toContain("seeded backlog item");
+      expect(unarmed.hookSpecificOutput.additionalContext).toContain("Continue from here");
+      expect(unarmed.hookSpecificOutput.initialUserMessage).toBeUndefined();
+      atomicWriteFile(join(root, ".night-loop", "state", "ACTIVE"), "run\n");
+      const armed = await invokeResume(root);
+      expect(armed.hookSpecificOutput.initialUserMessage).toContain("Resume NIGHT LOOP");
+      expect(armed.hookSpecificOutput.initialUserMessage).toContain("progress.md");
+    });
+  });
+});
 
 describe("verified halt states", () => {
   test("done requires a green full harness", async () => {

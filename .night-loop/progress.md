@@ -19,8 +19,17 @@ The SessionStart hook injects this file into each session.
   gate test plus judge tool-set assertion. Judge added a pwsh-only mutation probe that
   reddened exactly the four launcher-traversing specs.
 
+- M3 Durable resume and verified halt, CERTIFIED by night-loop-judge on 2026-08-14 after
+  two rejections that surfaced and fixed two real supervisor bugs: a stop no longer lets a
+  mid-backoff supervisor resurrect the run (post-backoff ACTIVE/HALTED re-check with a
+  recovery_cancelled event), and HALTED or budget exhaustion now terminates the native
+  session via claude stop (terminated_session event). stop now kills the recorded
+  supervisor pid before returning. New carriers: stall-counter rise/bound/reset, resume
+  argv carries the plugin dir, plugin manifest binds resume/loop/gate/events, and exit
+  codes documented in README.
+
 ## Doing
-- M3 Durable resume and verified halt, pending independent certification
+- M4 Unattended safety policy, pending independent certification
 
 ## Next
 - M3 Durable resume and verified halt, pending independent certification

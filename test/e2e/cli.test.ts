@@ -462,10 +462,147 @@ describe("Claude-native command surface", () => {
       expect(supervised.exitCode).toBe(0);
       const calls = (await Bun.file(log).text()).trim().split(/\r?\n/).map((line) => JSON.parse(line) as { args: string[] });
       expect(calls.some((call) => call.args[0] === "agents" && call.args.includes("--json"))).toBe(true);
-      expect(calls.at(-1)!.args.slice(0, 2)).toEqual(["--resume", SESSION_ID]);
+      const resume = calls.at(-1)!.args;
+      expect(resume.slice(0, 2)).toEqual(["--resume", SESSION_ID]);
+      expect(resume[resume.indexOf("--plugin-dir") + 1]).toBe(PRODUCT_ROOT);
       const events = await Bun.file(join(root, ".night-loop", "state", "events.jsonl")).text();
       expect(events).toContain("supervisor.recovery");
       expect(events).toContain('"backoffSeconds":20');
+    });
+  });
+
+  test("stop removes ACTIVE, calls native claude stop, and preserves resumable state and logs", async () => {
+    await withFixtureRepo("stop evidence", async (root) => {
+      const { script, log } = await fakeClaude(root);
+      const env = cliEnv(script, log);
+      await runCommand([process.execPath, CLI, "setup", "--repo", root, "--goal", "Stop evidence"], { cwd: root, env });
+      await runCommand([process.execPath, CLI, "start", "--repo", root], { cwd: root, env });
+      const stopped = await runCommand([process.execPath, CLI, "stop", "--repo", root], { cwd: root, env });
+      expect(stopped.exitCode).toBe(0);
+      expect(JSON.parse(stopped.stdout)).toMatchObject({ status: "stopped", nativeSessionId: SESSION_ID });
+      expect(existsSync(join(root, ".night-loop", "state", "ACTIVE"))).toBe(false);
+      const run = readJsonFile<{ status: string; nativeSessionId: string }>(join(root, ".night-loop", "state", "run.json"));
+      expect(run).toMatchObject({ status: "stopped", nativeSessionId: SESSION_ID });
+      const calls = (await Bun.file(log).text()).trim().split(/\r?\n/).map((line) => JSON.parse(line) as { args: string[] });
+      expect(calls.at(-1)!.args.slice(0, 2)).toEqual(["stop", SESSION_ID]);
+      const tape = await Bun.file(join(root, ".night-loop", "state", "events.jsonl")).text();
+      expect(tape).toContain("run.stopped");
+      expect(tape).toContain("run.started");
+    });
+  });
+
+  test("stop terminates the detached supervisor before returning", async () => {
+    await withFixtureRepo("stop supervisor", async (root) => {
+      const { script, log } = await fakeClaude(root);
+      // A 60s first poll parks the supervisor in its initial sleep, so its death can
+      // only come from stop terminating it, never from its own loop exit.
+      const env: Record<string, string> = { ...cliEnv(script, log), NIGHT_LOOP_POLL_MS: "60000" };
+      delete env.NIGHT_LOOP_DISABLE_WATCH;
+      await runCommand([process.execPath, CLI, "setup", "--repo", root, "--goal", "Stop tree"], { cwd: root, env });
+      await runCommand([process.execPath, CLI, "start", "--repo", root], { cwd: root, env });
+      const pidFile = join(root, ".night-loop", "state", "SUPERVISOR_PID");
+      const pid = Number((await Bun.file(pidFile).text()).trim());
+      expect(Number.isInteger(pid) && pid > 0).toBe(true);
+      expect(() => process.kill(pid, 0)).not.toThrow();
+      const stopped = await runCommand([process.execPath, CLI, "stop", "--repo", root], { cwd: root, env });
+      expect(stopped.exitCode).toBe(0);
+      expect(() => process.kill(pid, 0)).toThrow();
+      expect(existsSync(pidFile)).toBe(false);
+    });
+  }, 30000);
+
+  test("the shipped plugin binds resume, loop, gate, and events hooks to their Claude events", async () => {
+    const manifest = readJsonFile<{ hooks: Record<string, Array<{ hooks: Array<{ command: string }> }>> }>(
+      join(PRODUCT_ROOT, "hooks", "hooks.json"),
+    );
+    const bindings: Record<string, string> = {
+      SessionStart: "resume.ts",
+      Stop: "loop.ts",
+      PreToolUse: "gate.ts",
+      PermissionRequest: "events.ts",
+      Elicitation: "events.ts",
+    };
+    for (const [event, hookFile] of Object.entries(bindings)) {
+      const commands = (manifest.hooks[event] ?? []).flatMap((entry) => entry.hooks.map((hook) => hook.command));
+      expect(commands.some((command) =>
+        command.includes("${CLAUDE_PLUGIN_ROOT}") && command.includes(`.night-loop/hooks/${hookFile}`))).toBe(true);
+    }
+  });
+
+  test("the supervisor exits without touching Claude when no run is active", async () => {
+    await withFixtureRepo("inactive supervisor", async (root) => {
+      const { script, log } = await fakeClaude(root);
+      const env = cliEnv(script, log);
+      const supervised = await runCommand([process.execPath, CLI, "_supervise", "--once", "--repo", root], { cwd: root, env });
+      expect(supervised.exitCode).toBe(0);
+      expect(existsSync(log)).toBe(false);
+    });
+  });
+
+  test("each HALTED reason stops the supervisor and records the final status", async () => {
+    for (const reason of ["done", "blocked", "budget"] as const) {
+      await withFixtureRepo(`halted ${reason}`, async (root) => {
+        const { script, log } = await fakeClaude(root);
+        const env = cliEnv(script, log);
+        await runCommand([process.execPath, CLI, "setup", "--repo", root, "--goal", "Halt"], { cwd: root, env });
+        await runCommand([process.execPath, CLI, "start", "--repo", root], { cwd: root, env });
+        atomicWriteFile(join(root, ".night-loop", "state", "HALTED"), `${reason}\n`);
+        const supervised = await runCommand([process.execPath, CLI, "_supervise", "--once", "--repo", root], { cwd: root, env });
+        expect(supervised.exitCode).toBe(0);
+        expect(readJsonFile<{ status: string }>(join(root, ".night-loop", "state", "run.json")).status).toBe(reason);
+        expect(existsSync(join(root, ".night-loop", "state", "ACTIVE"))).toBe(false);
+        const calls = (await Bun.file(log).text()).trim().split(/\r?\n/).map((line) => JSON.parse(line) as { args: string[] });
+        expect(calls.at(-1)!.args.slice(0, 2)).toEqual(["stop", SESSION_ID]);
+        expect(await Bun.file(join(root, ".night-loop", "state", "events.jsonl")).text()).toContain("supervisor.terminated_session");
+      });
+    }
+  });
+
+  test("exhausted relaunches halt the supervisor as budget without a live session", async () => {
+    await withFixtureRepo("relaunch budget", async (root) => {
+      const { script, log } = await fakeClaude(root);
+      const env = cliEnv(script, log);
+      await runCommand([
+        process.execPath, CLI, "setup", "--repo", root, "--goal", "Bounded", "--max-relaunches", "1",
+      ], { cwd: root, env });
+      await runCommand([process.execPath, CLI, "start", "--repo", root], { cwd: root, env });
+      expect((await runCommand([process.execPath, CLI, "_supervise", "--once", "--repo", root], { cwd: root, env })).exitCode).toBe(0);
+      expect((await runCommand([process.execPath, CLI, "_supervise", "--once", "--repo", root], { cwd: root, env })).exitCode).toBe(0);
+      expect(readJsonFile<{ status: string }>(join(root, ".night-loop", "state", "run.json")).status).toBe("budget");
+      expect((await Bun.file(join(root, ".night-loop", "state", "HALTED")).text()).trim()).toBe("budget");
+      expect(existsSync(join(root, ".night-loop", "state", "ACTIVE"))).toBe(false);
+      const calls = (await Bun.file(log).text()).trim().split(/\r?\n/).map((line) => JSON.parse(line) as { args: string[] });
+      expect(calls.at(-1)!.args.slice(0, 2)).toEqual(["stop", SESSION_ID]);
+      const tape = await Bun.file(join(root, ".night-loop", "state", "events.jsonl")).text();
+      expect(tape).toContain("supervisor.exhausted");
+      expect(tape).toContain("supervisor.terminated_session");
+    });
+  });
+
+  test("seeded inactivity raises the stall counter to the bound and triggers relaunch", async () => {
+    await withFixtureRepo("stall path", async (root) => {
+      const { script, log } = await fakeClaude(root);
+      const env = {
+        ...cliEnv(script, log),
+        NIGHT_LOOP_STALL_TICKS: "2",
+        FAKE_AGENTS_JSON: JSON.stringify([{ id: SESSION_ID, name: "night-loop", status: "running", cwd: root }]),
+      };
+      await runCommand([process.execPath, CLI, "setup", "--repo", root, "--goal", "Stall"], { cwd: root, env });
+      await runCommand([process.execPath, CLI, "start", "--repo", root], { cwd: root, env });
+      const supervisorState = join(root, ".night-loop", "state", "supervisor.json");
+      await runCommand([process.execPath, CLI, "_supervise", "--once", "--repo", root], { cwd: root, env });
+      expect(readJsonFile(supervisorState)).toMatchObject({ stalledTicks: 0, lastStep: 0, relaunches: 0 });
+      await runCommand([process.execPath, CLI, "_supervise", "--once", "--repo", root], { cwd: root, env });
+      expect(readJsonFile(supervisorState)).toMatchObject({ stalledTicks: 1, lastStep: 0, relaunches: 0 });
+      await runCommand([process.execPath, CLI, "_supervise", "--once", "--repo", root], { cwd: root, env });
+      expect(readJsonFile(supervisorState)).toMatchObject({ stalledTicks: 0, relaunches: 1 });
+      const events = await Bun.file(join(root, ".night-loop", "state", "events.jsonl")).text();
+      expect(events).toContain('"reason":"stalled"');
+      const calls = (await Bun.file(log).text()).trim().split(/\r?\n/).map((line) => JSON.parse(line) as { args: string[] });
+      expect(calls.at(-1)!.args.slice(0, 2)).toEqual(["--resume", SESSION_ID]);
+      atomicWriteFile(join(root, ".night-loop", "state", "STEP"), "7\n");
+      await runCommand([process.execPath, CLI, "_supervise", "--once", "--repo", root], { cwd: root, env });
+      expect(readJsonFile(supervisorState)).toMatchObject({ stalledTicks: 0, lastStep: 7, relaunches: 1 });
     });
   });
 
