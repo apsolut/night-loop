@@ -787,9 +787,15 @@ describe("portable install and CI", () => {
       copyFileSync(process.execPath, join(bunHome, "bin", bunName));
       chmodSync(join(bunHome, "bin", bunName), 0o755);
       const runner = join(PRODUCT_ROOT, ".night-loop", "hooks", "with-bun.sh");
+      // Strip bun from PATH but keep the standard utility directories: on macOS
+      // sh lives in /bin while dirname lives in /usr/bin, so a PATH of only
+      // sh's directory tests coreutils absence, not bun absence.
+      const strippedPath = process.platform === "win32"
+        ? dirname(sh)
+        : [...new Set([dirname(sh), "/usr/bin", "/bin"])].join(":");
       const child = Bun.spawn([sh, runner, "resume.ts"], {
         cwd: root,
-        env: { ...process.env, PATH: dirname(sh), BUN_INSTALL: bunHome, CLAUDE_PROJECT_DIR: root },
+        env: { ...process.env, PATH: strippedPath, BUN_INSTALL: bunHome, CLAUDE_PROJECT_DIR: root },
         stdin: "pipe",
         stdout: "pipe",
         stderr: "pipe",
