@@ -1,6 +1,9 @@
 # 005: The worker cap in gate.ts must exempt the night-loop-judge (attended edit required)
 
-Date: 2026-08-14. Status: blocked on an attended control-plane edit.
+Date: 2026-08-14. Status: APPLIED 2026-08-14 by the owner (attended cp into
+.night-loop/hooks/gate.ts). Follow-ups 2 and 3 landed in the same change: an e2e
+case proves the judge is allowed and a generic Agent call denied at workers=1, and
+generatedSettings no longer emits the bare Agent deny (the gate enforces the cap).
 
 ## Defect
 

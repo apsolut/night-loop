@@ -61,8 +61,9 @@ The SessionStart hook injects this file into each session.
 - Nothing buildable remains locally. M6 and M7 are hard-blocked.
 
 ## Next
-- M6 Cross-OS matrix certification (hard-block until external runners execute)
-- M7 Live Claude smoke (hard-block until test authentication is approved)
+- M6 Cross-OS matrix certification (owner approved the push on 2026-08-14; evidence
+  arrives when the GitHub runners execute the committed matrix)
+- M7 Live Claude smoke (owner approved test authentication on 2026-08-14; buildable)
 
 ## Blocked / needs human
 <!-- gated milestones and decisions, with the risk surface that could not be auto-verified -->
@@ -71,10 +72,9 @@ The SessionStart hook injects this file into each session.
   Linux container run is deferred to external runners.
 - M6 Cross-OS matrix: needs windows-latest, ubuntu-latest, and macos-latest GitHub runners.
 - M7 Live Claude smoke: needs owner-approved test authentication.
-- Control-plane edit: gate.ts must exempt the night-loop-judge from the Agent worker cap
-  or no milestone can be certified under the default workers=1 contract. The build agent
-  cannot edit its own armed control plane by design. Exact one-hunk fix and follow-ups in
-  decisions/005-judge-exemption-needs-attended-gate-edit.md.
+- RESOLVED 2026-08-14: the owner applied the decisions/005 gate edit attended; the judge
+  is exempt from the worker cap, an e2e case pins it, and generatedSettings dropped the
+  settings-level Agent deny that would have fired before the gate.
 
 ## Deferred
 - Multi-provider adapters for Codex, Grok, and Agy

@@ -80,6 +80,14 @@ if (tool === "Edit" || tool === "Write" || tool === "MultiEdit") {
 }
 
 if (tool === "Agent" || tool === "Workflow") {
+  // The independent judge is verification infrastructure, never an implementation
+  // worker: it must stay invocable even when the worker cap disables implementer
+  // subagents, or no milestone could ever be certified under workers=1.
+  const subagentType = String((ti as Record<string, unknown>).subagent_type ?? "");
+  if (tool === "Agent" && /night-loop-judge/.test(subagentType)) {
+    appendEvent("judge.invoked", { subagentType });
+    process.exit(0);
+  }
   const contract = markerPath("contract.json");
   const workers = pathExists(contract) ? readJsonFile<any>(contract).limits?.workers ?? 1 : 1;
   const cap = workers === "auto" ? 4 : Number(workers);

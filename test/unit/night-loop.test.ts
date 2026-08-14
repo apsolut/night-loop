@@ -45,7 +45,10 @@ describe("Night Contract", () => {
       const full = generatedSettings({ ...contract, permissions: "full" });
       const fullPermissions = full.permissions as { defaultMode: string; deny: string[] };
       expect(fullPermissions.defaultMode).toBe("bypassPermissions");
-      expect(fullPermissions.deny).toEqual(expect.arrayContaining(["Skill(batch)", "Skill(autofix-pr)", "Agent"]));
+      expect(fullPermissions.deny).toEqual(expect.arrayContaining(["Skill(batch)", "Skill(autofix-pr)"]));
+      // Worker-cap enforcement lives in the gate so the judge stays invocable at
+      // workers=1 (decision 005); a settings-level Agent deny would fire first.
+      expect(fullPermissions.deny).not.toContain("Agent");
     });
   });
 

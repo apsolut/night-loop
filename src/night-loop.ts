@@ -154,8 +154,10 @@ export function compileGoal(contract: NightContract): string {
 }
 
 export function generatedSettings(contract: NightContract): Record<string, unknown> {
+  // The worker cap is enforced by the PreToolUse gate, not a settings-level Agent
+  // deny: a bare deny would fire before the gate and block the night-loop-judge,
+  // making certification unreachable at workers=1 (decision 005).
   const deny = ["Skill(batch)", "Skill(autofix-pr)"];
-  if (contract.limits.workers === 1) deny.push("Agent");
   return {
     permissions: {
       defaultMode: permissionMode(contract.permissions),

@@ -908,6 +908,39 @@ describe("Question Firewall and immutable gate", () => {
     });
   });
 
+  test("the judge stays invocable at workers=1 while a generic Agent call is denied", async () => {
+    // Decision 005: the judge is verification infrastructure, not an implementation
+    // worker, so the worker cap must never make certification unreachable.
+    await withFixtureRepo("judge exemption", async (root) => {
+      const spawnGate = (subagentType: string) => Bun.spawn([process.execPath, GATE_HOOK], {
+        cwd: root,
+        env: { ...process.env, CLAUDE_PROJECT_DIR: root },
+        stdin: "pipe",
+        stdout: "pipe",
+      });
+      const judgeChild = spawnGate("night-loop-judge");
+      judgeChild.stdin.write(JSON.stringify({
+        tool_name: "Agent",
+        tool_input: { subagent_type: "night-loop-judge", prompt: "certify the milestone" },
+      }));
+      judgeChild.stdin.end();
+      expect((await new Response(judgeChild.stdout).text()).trim()).toBe("");
+      expect(await judgeChild.exited).toBe(0);
+      const tape = await Bun.file(join(root, ".night-loop", "state", "events.jsonl")).text();
+      expect(tape).toContain('"type":"judge.invoked"');
+
+      const workerChild = spawnGate("general-purpose");
+      workerChild.stdin.write(JSON.stringify({
+        tool_name: "Agent",
+        tool_input: { subagent_type: "general-purpose", prompt: "implement the next milestone" },
+      }));
+      workerChild.stdin.end();
+      expect(JSON.parse(await new Response(workerChild.stdout).text())).toMatchObject({
+        hookSpecificOutput: { permissionDecision: "deny" },
+      });
+    });
+  });
+
   test("no tracked repository file carries a credential value", async () => {
     const listed = await runCommand(["git", "ls-files"], { cwd: PRODUCT_ROOT });
     expect(listed.exitCode).toBe(0);
