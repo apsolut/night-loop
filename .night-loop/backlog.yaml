@@ -78,3 +78,34 @@
     - "With owner-approved test authentication, Claude Code completes a bounded probe from an empty temporary working directory, asks no question, and leaves no file diff"
     - "With owner-approved test authentication, Claude Code executes one seeded backlog task inside the jail, the repository independently verifies the expected fixture change, and Claude cannot push, publish, deploy, or write to production"
     - "The live smoke records the Claude Code CLI version, exit state, elapsed time, permission profile, and redacted evidence without recording credentials or secret-bearing prompts"
+
+- id: M8-provider-neutral-turn-supervisor
+  depends_on: [M4-unattended-safety-policy]
+  gated: false
+  acceptance:
+    - "night-loop setup --provider codex, grok, or claude records the provider in the contract, start without a provider option keeps the recorded provider, and an unknown provider is rejected with invalid_arguments before any binary is launched"
+    - "For a turn-based provider, start returns running without waiting for the first turn, and the detached supervisor records the provider session id in run.json once the seeded turn output arrives"
+    - "Between turns the supervisor executes the unchanged Stop-hook verifier and persists its exact block reason as the next prompt; a seeded CLAIM_DONE with a green full harness halts the run as done and no further provider turn is launched"
+    - "A seeded non-zero provider exit triggers bounded relaunch that resumes the recorded session id with deterministic test backoff, and exhausting the relaunch budget halts the run as budget"
+    - "stop terminates the running provider process and the supervisor, preserves the session id, and resume relaunches the same provider with the same permission profile and limits without upgrading either"
+    - "A seeded final message that asks for clarification or approval is recorded as interaction_required while the next turn still starts, and five consecutive interaction turns halt the run as interaction_required"
+    - "Codex launch argument arrays map workspace to a workspace-write sandbox with approval never and full to danger-full-access with approval never, carry the NIGHT LOOP hooks as config overrides, pass the prompt verbatim with spaces, quotes, and Unicode, and no OPENAI or CODEX API key reaches the child"
+
+- id: M9-grok-adapter-and-hook-bridge
+  depends_on: [M8-provider-neutral-turn-supervisor]
+  gated: false
+  acceptance:
+    - "Grok launch argument arrays map workspace to dontAsk with the generated allow and deny rules and full to bypassPermissions with the same deny rules, disable plan mode and web search, cap turns, pre-assign the session id, and no XAI or GROK API key reaches the child"
+    - "The hook bridge rewrites a seeded Grok run_terminal_command that pushes to a remote into a denial from the unchanged gate, flags a seeded search_replace into a security-surface path for morning review, and expands a seeded Codex apply_patch so each touched path is gated"
+    - "start writes the Grok project hook file that binds gate, loop, resume, and events through the bridge with absolute paths, and the bridged Stop hook returns the same block reason loop.ts returns for the same seeded repository"
+    - "resume passes the recorded Grok session id with --resume and never upgrades the permission profile or limits"
+
+- id: M10-claude-current-feature-adoption
+  depends_on: [M2-native-claude-supervisor]
+  gated: false
+  acceptance:
+    - "After a seeded background launch that prints only the short id line, run.json carries the full sessionId resolved from claude agents --json, stop uses the short id, and resume uses the full sessionId"
+    - "status reports state, status, and waitingFor from the native agent record, and a seeded waiting session is recorded as interaction_required evidence exactly once per transition"
+    - "doctor requires Claude Code 2.1.300 or newer, reports the installed version, and the remediation names the floor"
+    - "Generated settings carry CLAUDE_CODE_STOP_HOOK_BLOCK_CAP and CLAUDE_CODE_RESUME_INTERRUPTED_TURN, and setup --model and --effort reach the Claude launch argv verbatim and are preserved by resume"
+    - "status and the morning receipt include the redacted tail of claude logs for the session, and a seeded credential-shaped line in that output never reaches run state, receipt, or event tape"

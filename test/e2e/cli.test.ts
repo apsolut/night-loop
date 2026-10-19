@@ -119,7 +119,7 @@ async function fakeClaude(root: string): Promise<{ script: string; log: string }
     "const args = Bun.argv.slice(2);",
     "const secretPresent = Boolean(process.env.ANTHROPIC_API_KEY || process.env.ANTHROPIC_AUTH_TOKEN);",
     "appendFileSync(process.env.FAKE_CLAUDE_LOG!, JSON.stringify({ args, secretPresent }) + '\\n');",
-    "if (args.includes('--version')) console.log('2.1.229 (Claude Code)');",
+    "if (args.includes('--version')) console.log('2.1.303 (Claude Code)');",
     "else if (args[0] === 'agents') console.log(process.env.FAKE_AGENTS_JSON || '[]');",
     `else if (args[0] === 'stop') console.log('stopped ${SESSION_ID}');`,
     "else if (process.env.FAKE_CLAUDE_OUTPUT) console.log(process.env.FAKE_CLAUDE_OUTPUT);",

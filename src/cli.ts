@@ -16,6 +16,7 @@ import {
   writeContract,
   type PermissionProfile,
 } from "./night-loop";
+import { parseProvider } from "./providers";
 
 interface FixtureResult {
   status: "success" | "interaction_required";
@@ -54,10 +55,11 @@ function fail(message: string, exitCode = 2): never {
 
 function help(): void {
   console.log([
-    "NIGHT LOOP: Claude Code does the work. NIGHT LOOP proves it was safe to leave alone and actually done.",
+    "NIGHT LOOP: a subscription coding agent does the work. NIGHT LOOP proves it was safe to leave alone and actually done.",
     "",
     "Commands:",
-    "  night-loop setup --goal <text> [--permissions workspace|full] [--workers 1|auto|N]",
+    "  night-loop setup --goal <text> [--provider claude|codex|grok] [--permissions workspace|full]",
+    "                   [--workers 1|auto|N] [--model <id>] [--effort <level>] [--max-steps N] [--max-relaunches N]",
     "  night-loop start [--permissions workspace|full]",
     "  night-loop full",
     "  night-loop status",
@@ -106,7 +108,10 @@ async function main(): Promise<void> {
     if (goal === undefined) fail("setup requires --goal <text>");
     const contract = writeContract(context, {
       goal,
+      provider: parseProvider(option(args, "--provider")),
       permissions: permissionOption(args),
+      model: option(args, "--model"),
+      effort: option(args, "--effort"),
       maxSteps: integerOption(args, "--max-steps", 2000),
       maxRelaunches: integerOption(args, "--max-relaunches", 20),
       workers: parseWorkers(option(args, "--workers")),
@@ -121,7 +126,7 @@ async function main(): Promise<void> {
     return;
   }
   if (command === "status") {
-    emit(await statusNightLoop(context));
+    emit(await statusNightLoop(context, { logs: true }));
     return;
   }
   if (command === "stop") {

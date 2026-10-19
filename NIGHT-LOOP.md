@@ -1,14 +1,15 @@
 # NIGHT LOOP Operator Guide
 
-NIGHT LOOP supervises one Claude Code implementer session. Native Claude features provide the
-background process, resumable conversation, optional workflows, and optional subagents. NIGHT LOOP
-adds the unattended contract and the proof layer.
+NIGHT LOOP supervises one implementer session: Claude Code by default, or Codex or Grok Build when
+`setup --provider` says so (decision 009). Native provider features supply the process, the
+resumable conversation, optional workflows, and optional subagents. NIGHT LOOP adds the unattended
+contract and the proof layer.
 
 ## Runtime flow
 
 ```text
 setup
-  -> contract.json
+  -> contract.json (goal, provider, profile, limits, optional model and effort)
   -> start or full
   -> claude --bg with /goal, settings, plugin, and permission mode
   -> native Claude background session
@@ -23,6 +24,23 @@ The launcher exits after native Claude accepts the background session. A small d
 polls `claude agents --json`, observes the durable STEP marker, and uses native resume when recovery
 is required. No tmux, WSL, shell command concatenation, API key, or second implementer is required.
 
+Turn-based providers follow the same shape with the supervisor driving each turn (decision 010):
+
+```text
+start or full
+  -> NEXT_PROMPT = compiled goal
+  -> detached supervisor
+  -> codex exec --json ... or grok -p ... (one headless turn, hooks delivered natively)
+  -> turn ends: session id recorded, last message checked for questions
+  -> the unchanged Stop hook runs as the verifier
+  -> block reason becomes NEXT_PROMPT, or HALTED ends the run
+  -> next turn resumes the recorded session
+```
+
+A stalled turn (STEP unchanged for the configured ticks) or a non-zero exit is killed as a process
+tree and counted against the relaunch budget. Five consecutive turns that end on a question halt the
+run as `interaction_required` rather than burning the subscription on a conversation.
+
 ## State
 
 Committed control files:
@@ -36,15 +54,22 @@ Committed control files:
 Ignored runtime files:
 
 - `state/contract.json`: attended Night Contract
-- `state/run.json`: current native session id, profile, and limits
+- `state/run.json`: provider, native session id (short id and UUID for Claude), profile, limits,
+  turn count, last `waitingFor`, and the redacted `claude logs` tail
 - `state/claude-settings.json`: generated noninteractive settings
 - `state/events.jsonl`: SHA-256 chained event tape
 - `state/ACTIVE`: supervisor owns an active run
 - `state/STEP`: Stop-hook progress counter
 - `state/CLAIM_DONE`: implementer completion claim awaiting verification
 - `state/ALL_BLOCKED`: only hard-blocked work remains
-- `state/HALTED`: done, blocked, or budget
+- `state/HALTED`: done, blocked, budget, or interaction_required
+- `state/SUPERVISOR_PID` and `state/PROVIDER_PID`: the detached supervisor and the running turn
+- `state/NEXT_PROMPT`: the verifier's block reason queued for the next provider turn
+- `state/supervisor.json`: relaunches, last STEP, stall ticks, consecutive interaction turns
 - `runs/*-morning.md` and `.json`: verified receipts
+
+Generated into the host project for Grok only: `.grok/hooks/night-loop.json`, rewritten on every
+start and resume, pointing at this checkout's hook bridge. Add it to the host's ignore file.
 
 ## Question Firewall
 
@@ -71,6 +96,19 @@ authority becomes a structured blocked action and the agent continues with rever
 
 Full maps to Claude `bypassPermissions`. It does not change the external gate, environment scrub,
 worker cap, step cap, relaunch cap, test-only credential boundary, or production-cutover boundary.
+
+The other providers map the same two profiles onto their own switches, never onto a prompt:
+
+| Profile | Codex CLI | Grok Build |
+|---|---|---|
+| workspace | `--sandbox workspace-write`, `approval_policy="never"`, network on for installs | `--permission-mode dontAsk`, `--allow` for the seven ordinary tools, `--deny` for push, publish, and forced deletion |
+| full | `--sandbox danger-full-access`, `approval_policy="never"` | `--permission-mode bypassPermissions`, the same `--deny` rules |
+
+Both also get `--no-plan`, `--disable-web-search`, `--max-turns 100`, and `--no-subagents` at
+`--workers 1` (Grok), or the hook overrides, `--dangerously-bypass-hook-trust`, and the armed
+worker cap as `features.multi_agent=false` or `agents.max_concurrent_threads_per_session=N`
+(Codex), so the NIGHT LOOP hooks run without a trust dialog and a later attended setup cannot
+loosen a resumed run's cap.
 
 The gate denies at least:
 
@@ -106,6 +144,20 @@ counter. A missing native agent or bounded inactivity triggers native resume wit
 exponential backoff capped at ten minutes. Stop calls `claude stop <id>`, removes ACTIVE, and keeps
 the contract, native session id, ledger, and receipts for later resume.
 
+Claude's `--bg` banner prints only a short id. `status` resolves the full session UUID from
+`claude agents --json` and stores both: `stop` and `logs` take the short id, `--resume` takes the
+UUID (decision 012). A native `waitingFor` value is recorded once per transition as
+`interaction_required` evidence.
+
+For Codex and Grok the supervisor is the turn driver: the provider's pid is recorded while a turn
+runs, a stop kills that process tree before the supervisor exits, and resume relaunches the same
+provider with the armed profile and the recorded session id.
+
+Resume also writes the armed profile, limits, model, effort, and provider back to
+`state/contract.json` when a later attended setup changed them, and records `contract.restored`
+in the tape (decision 014). The gate reads that file for its worker cap, so a resumed night can
+never be loosened from disk; the new contract applies to the next `start`.
+
 ## Morning Receipt
 
 Run:
@@ -122,8 +174,8 @@ recoveries, blocked actions, current progress, selected limits, and rollback ins
 ## Doctor and failure behavior
 
 `doctor` is read-only and noninteractive. It reports OS, architecture, Claude version, Bun version,
-Git version, plugin and hook presence, and whether setup has been completed. Claude 2.1.139 is the
-minimum for native background agents. Claude 2.1.154 is recommended for workflows.
+Git version, plugin and hook presence, and whether setup has been completed. Claude 2.1.300 is the
+minimum (decision 012). Codex 0.160.0 and Grok Build 1.0.46 are the floors for the other providers.
 
 If required authority or real ground truth is missing, the agent records a blocked milestone and
 moves on. If the only remaining work is blocked, the run halts as blocked. NIGHT LOOP never invents
@@ -131,7 +183,8 @@ production credentials and never asks for them overnight.
 
 ## Product boundary
 
-Public NIGHT LOOP is Claude-only. It does not install or call Codex, Grok, Agy, provider adapters,
-`.apsolut-agents/`, custom multi-agent control planes, or worktree multiplexers. Native workers are
-optional, bounded accelerators. Future channels or Remote Control integrations may announce DONE or
-BLOCKED, but they must never become permission prompts.
+Public NIGHT LOOP drives one implementer per run through its installed subscription CLI: Claude
+Code, Codex, or Grok Build (decision 009). It does not route between providers, run them in
+competition, install `.apsolut-agents/`, or add a custom multi-agent control plane or worktree
+multiplexer. Native workers are optional, bounded accelerators. Future channels or Remote Control
+integrations may announce DONE or BLOCKED, but they must never become permission prompts.

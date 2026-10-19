@@ -22,7 +22,8 @@
         "hooks": [
           {
             "type": "command",
-            "command": "sh \"${CLAUDE_PROJECT_DIR}/.night-loop/hooks/with-bun.sh\" loop.ts"
+            "command": "sh \"${CLAUDE_PROJECT_DIR}/.night-loop/hooks/with-bun.sh\" loop.ts",
+            "timeout": 1800
           }
         ]
       }
@@ -163,7 +164,8 @@
         "hooks": [
           {
             "type": "command",
-            "command": "sh \"${CLAUDE_PROJECT_DIR}/.night-loop/hooks/with-bun.sh\" gate.ts"
+            "command": "sh \"${CLAUDE_PROJECT_DIR}/.night-loop/hooks/with-bun.sh\" gate.ts",
+            "onFailure": "block"
           }
         ]
       }

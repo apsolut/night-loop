@@ -1,7 +1,9 @@
 #!/usr/bin/env bun
 export {};
 
-const BUNDLE_LIMIT_BYTES = 32 * 1024;
+// 48 KiB since decision 013: the Codex and Grok adapters plus the turn supervisor are
+// first-party code; the budget still trips on any accidental dependency bloat.
+const BUNDLE_LIMIT_BYTES = 48 * 1024;
 const build = await Bun.build({
   entrypoints: ["src/cli.ts"],
   minify: true,

@@ -11,7 +11,7 @@ section here.
 
 ## 1. Install the prerequisites
 
-### Claude Code (2.1.139 or newer)
+### Claude Code (2.1.300 or newer)
 
 Follow https://claude.com/claude-code for your platform, then authenticate with
 your Claude subscription:
@@ -21,7 +21,35 @@ claude --version
 claude   # first run walks you through login
 ```
 
-2.1.154 or newer is recommended if you opt into native workflows.
+The floor rose from 2.1.139 on 2026-10-19 (decision 012).
+
+### Codex CLI (optional, 0.160.0 or newer, only for `--provider codex`)
+
+Install from https://developers.openai.com/codex/cli (npm: `npm install -g @openai/codex`),
+then sign in with your ChatGPT subscription, never an API key:
+
+```
+codex --version
+codex login                 # browser; use `codex login --device-auth` on a headless box
+codex login status          # must print "Logged in using ChatGPT"
+```
+
+NIGHT LOOP passes its hooks to Codex as config overrides, so nothing is written into your
+project's `.codex/` folder. The warning `--dangerously-bypass-hook-trust is enabled` at the top of
+each turn is expected: it is how the hooks run without a trust dialog.
+
+### Grok Build (optional, 1.0.46 or newer, only for `--provider grok`)
+
+Install from https://x.ai/cli (Windows: `irm https://x.ai/cli/install.ps1 | iex`), then sign in:
+
+```
+grok --version
+grok login                  # browser OAuth; use `grok login --device-auth` on a headless box
+```
+
+Doctor checks that `~/.grok/auth.json` exists; it never reads it. NIGHT LOOP generates
+`.grok/hooks/night-loop.json` in your project on every start and passes `--trust` so the project
+hooks load. Add that file to your ignore file.
 
 ### Bun (1.3.x)
 
@@ -68,7 +96,11 @@ powershell -NoProfile -ExecutionPolicy Bypass -File scripts/night-loop.ps1 docto
 The report is JSON:
 
 - `status`: `green` means every check passed; `red` sets exit code 1.
-- `checks`: `claude`, `git`, `bun`, `plugin`, `hooks`. Each is a boolean.
+- `provider`: which implementer the contract selects (`claude` before setup).
+- `checks`: the selected provider (`claude`, or `codex` plus `codexLogin`, or `grok` plus
+  `grokLogin`), then `git`, `bun`, `plugin`, `hooks`. Each is a boolean.
+- `floors`: the minimum version of every provider, so the report is self-describing.
+- `login`: the redacted sign-in status for Codex or Grok, `null` for Claude.
 - `configured`: whether this repository already has a Night Contract
   (`false` is normal before attended setup).
 - `versions`: the exact binaries doctor talked to.
@@ -109,7 +141,7 @@ and re-run doctor.
 
 ### "claude: command not found" or doctor reports checks.claude false
 
-Claude Code is not installed, not on PATH, or older than 2.1.139. Reinstall
+Claude Code is not installed, not on PATH, or older than 2.1.300. Reinstall
 from https://claude.com/claude-code and confirm `claude --version` in a fresh
 terminal. If the version is current but doctor still fails, your editor is
 holding a stale PATH; restart it.
@@ -138,6 +170,21 @@ process that just exited. The suite already retries bounded EBUSY errors in
 code. A reproducible failure is never a flake: revert the change that caused
 it, do not weaken the test.
 
+### Grok turns run but no hook events appear in the tape
+
+NIGHT LOOP passes `--trust` on every turn. If your `~/.grok/config.toml` disables folder trust
+or pins `allowManagedHooksOnly`, project hooks cannot load. Grok's Windows hook runner is
+PowerShell, so the generated commands start with the `&` call operator there; do not hand-edit
+them into plain quoted paths. To diagnose, open `~/.grok/logs/hooks.log` after a turn: it lists
+every hook source with `count=N` and each hook run. Inside the turn, Grok's own `dontAsk` denial
+and the `--deny` rules still apply, and the supervisor's between-turn verifier always runs.
+
+### Codex prints "hooks may run without review for this invocation"
+
+Expected. The turn is launched with `--dangerously-bypass-hook-trust` so the NIGHT LOOP hooks run
+without an interactive `/hooks` trust step. The hooks are the ones in this checkout, passed on the
+command line; Codex never loads a `.codex/hooks.json` from the project for NIGHT LOOP.
+
 ### `pwsh` not found on Windows
 
 `pwsh` is PowerShell 7, a separate install. You do not need it: every
@@ -150,6 +197,8 @@ optional alternative that runs the same launcher identically.
   `package.json` before jumping a major version.
 - Claude Code: `claude update` (or your package manager). Doctor enforces the
   minimum version, not the latest, so update on your own schedule.
+- Codex: `codex update`. Grok Build: `grok update`. Both auto-updaters are kept
+  out of the unattended turn.
 - After any upgrade, run doctor once and, before an overnight run, run the
   full harness: `bun run typecheck && bun run lint && bun run test:unit`.
 

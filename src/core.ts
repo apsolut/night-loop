@@ -227,3 +227,48 @@ export function readJsonFile<T>(path: string): T {
 export function pathExists(path: string): boolean {
   return existsSync(path);
 }
+
+export function isUuid(value: string | undefined): boolean {
+  return typeof value === "string" && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value);
+}
+
+// Credential-shaped text never reaches run state, receipts, or the event tape. Applied to
+// every provider output that is persisted (decision 012).
+const SECRET_PATTERNS: Array<[RegExp, string]> = [
+  [/-----BEGIN [A-Z ]*PRIVATE KEY-----[\s\S]*?-----END [A-Z ]*PRIVATE KEY-----/g, "[REDACTED PRIVATE KEY]"],
+  [/\bsk-ant-[A-Za-z0-9_-]{8,}/g, "[REDACTED]"],
+  [/\bsk-[A-Za-z0-9_-]{20,}/g, "[REDACTED]"],
+  [/\bxai-[A-Za-z0-9_-]{8,}/g, "[REDACTED]"],
+  [/\bghp_[A-Za-z0-9]{10,}/g, "[REDACTED]"],
+  [/\bAKIA[0-9A-Z]{16}\b/g, "[REDACTED]"],
+  [/\bBearer\s+[A-Za-z0-9._~+/=-]{8,}/g, "Bearer [REDACTED]"],
+  [/((?:api[_ -]?key|auth[_ -]?token|access[_ -]?token|refresh[_ -]?token|password|secret)\s*[:=]\s*)["']?[^\s"']+/gi, "$1[REDACTED]"],
+];
+
+export function redactSecrets(text: string): string {
+  let output = text;
+  for (const [pattern, replacement] of SECRET_PATTERNS) output = output.replace(pattern, replacement);
+  return output;
+}
+
+export function processAlive(pid: number): boolean {
+  if (!Number.isInteger(pid) || pid <= 0) return false;
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+// Turn-mode providers spawn their own sandbox and shell children. Stop must take the whole
+// tree down, not only the parent, or an orphaned turn keeps editing the checkout.
+export function killProcessTree(pid: number): void {
+  if (!Number.isInteger(pid) || pid <= 0) return;
+  if (process.platform === "win32") {
+    Bun.spawnSync(["taskkill", "/PID", String(pid), "/T", "/F"], { stdout: "ignore", stderr: "ignore" });
+    return;
+  }
+  try { process.kill(-pid, "SIGKILL"); } catch {}
+  try { process.kill(pid, "SIGKILL"); } catch {}
+}

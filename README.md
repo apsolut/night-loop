@@ -10,24 +10,28 @@
 > session, so any Claude Code session in this repo can pick it up, including this one,
 > right now. The "original orchestrator" is gone and doesn't matter.
 
-Claude Code does the work. NIGHT LOOP proves it was safe to leave alone and actually done.
+A subscription coding agent does the work: Claude Code by default, or OpenAI Codex or xAI Grok Build
+when you say so at setup. NIGHT LOOP proves it was safe to leave alone and actually done.
 
-NIGHT LOOP wraps one native Claude Code background session with a Night Contract, a zero-question
-firewall, immutable safety hooks, deterministic completion checks, crash recovery, and a
-tamper-evident Morning Receipt.
+NIGHT LOOP wraps one native Claude Code background session (or one headless Codex or Grok Build
+session) with a Night Contract, a zero-question firewall, immutable safety hooks, deterministic
+completion checks, crash recovery, and a tamper-evident Morning Receipt.
 
-It is intentionally not a provider router or custom multi-agent control plane.
+It is intentionally not a provider router or custom multi-agent control plane: one provider per run,
+chosen once while you are present, the same hooks and the same verifier for all three.
 
 ## Requirements
 
-- Claude Code 2.1.139 or newer, already authenticated with your Claude subscription
+- Claude Code 2.1.300 or newer, already authenticated with your Claude subscription
+- Optional, only for `--provider codex`: Codex CLI 0.160.0 or newer, signed in with ChatGPT
+- Optional, only for `--provider grok`: Grok Build 1.0.46 or newer, signed in with `grok login`
 - Bun 1.3.x
 - Git
 - On Windows: PowerShell. The built-in Windows PowerShell 5.1 works; PowerShell 7 (`pwsh`)
   is also supported. No WSL and no Git Bash are required.
 - A trusted Git repository with a deterministic test harness
 
-Claude Code 2.1.154 or newer is recommended if you opt into native workflows.
+The floor rose from 2.1.139 on 2026-10-19 (decision 012): fail-closed hooks, bounded retries, and the `--bg` trust check all post-date it.
 
 If anything is missing, `night-loop doctor` reports each failing check with a concrete fix,
 and [HOWTO.md](HOWTO.md) carries the full install and troubleshooting guide.
@@ -83,16 +87,43 @@ or control-plane changes.
 
 | Command | Behavior |
 |---|---|
-| `setup` | The only attended command. Records goal, permission profile, limits, and worker cap. |
-| `start` | Starts one native `claude --bg` session in `dontAsk` mode by default. |
+| `setup` | The only attended command. Records goal, provider, permission profile, limits, worker cap, and optional `--model` and `--effort`. |
+| `start` | Starts one native `claude --bg` session in `dontAsk` mode by default. For Codex or Grok, starts the detached turn supervisor. |
 | `full` | Exact alias for `start --permissions full`, with no confirmation. |
-| `status` | Combines durable state with `claude agents --json`. |
-| `stop` | Calls native `claude stop`, preserves the session id, contract, logs, and receipt evidence. |
-| `resume` | Resumes the native session without upgrading permissions or limits. |
+| `status` | Combines durable state with `claude agents --json` and a redacted `claude logs` tail, or with the provider process state. |
+| `stop` | Calls native `claude stop` (or kills the provider process tree), preserves the session id, contract, logs, and receipt evidence. |
+| `resume` | Resumes the recorded session without upgrading permissions, limits, model, or effort. |
 | `morning` | Writes Markdown and JSON receipts under `.night-loop/runs/`. |
-| `doctor` | Checks Claude, Bun, Git, plugin files, hooks, platform, and configuration status. |
+| `doctor` | Checks the selected provider's version and login, Bun, Git, plugin files, hooks, platform, and configuration status. |
 
 Every command after `setup` is noninteractive.
+
+## Other providers: Codex and Grok Build
+
+Pick the implementer once, at setup. Everything else stays identical: the same contract, the same
+gate, the same Stop-hook verifier, the same receipt.
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/night-loop.ps1 setup --goal "Build the approved backlog to a testable MVP" --provider codex
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/night-loop.ps1 start
+```
+
+| Profile | Claude Code | Codex CLI | Grok Build |
+|---|---|---|---|
+| `workspace` (default) | `--permission-mode dontAsk` | `--sandbox workspace-write` with `approval_policy="never"` | `--permission-mode dontAsk` with the generated allow and deny rules |
+| `full` | `--permission-mode bypassPermissions` | `--sandbox danger-full-access` with `approval_policy="never"` | `--permission-mode bypassPermissions` with the same deny rules |
+
+Claude runs as one background session that the Stop hook keeps working. Codex and Grok run one
+headless turn per process, so the detached supervisor runs each turn, then executes the same Stop
+hook as a verifier and feeds its exact block reason to the provider as the next prompt. Inside a turn
+the NIGHT LOOP hooks also run natively: Codex receives them as config overrides on the command line,
+and Grok reads a generated `.grok/hooks/night-loop.json` in the project (add it to your ignore file).
+A small bridge in `src/hook-bridge.ts` only renames provider tool payloads to the Claude shape; the
+gate, verifier, and resume injection are the same files for every provider.
+
+All three use the owner's flat subscription login. Anthropic, OpenAI, and xAI API key variables are
+scrubbed before every launch, and `doctor` is red when Codex is not signed in with ChatGPT or Grok
+has no session token.
 
 Exit codes: `0` success, including classified terminal states such as `interaction_required`
 reported in the JSON output; `1` a red `doctor` report; `2` invalid arguments or a refused
@@ -110,7 +141,8 @@ request, so the sentinel is itself testable.
 4. The Stop hook runs an independent ratchet. A model-written `CLAIM_DONE` is rejected while any
    exact harness command is red.
 5. The native-session supervisor detects a missing or stalled background session and resumes it
-   with bounded exponential backoff.
+   with bounded exponential backoff. For Codex and Grok it runs each headless turn, kills a stalled
+   turn, and resumes the recorded session under the same bound.
 6. The append-only JSONL event tape is SHA-256 chained. The Morning Receipt verifies the chain and
    reports criteria, tests, verdicts, recoveries, blocked actions, and rollback instructions.
 
@@ -137,7 +169,8 @@ Current Claude references: [goal](https://code.claude.com/docs/en/goal),
 
 Hooks are policy enforcement, not a kernel sandbox. Run `full` only inside a container, VM, or
 equivalent outer jail with no production credentials and restricted egress. NIGHT LOOP scrubs
-Claude API key variables before launch and is designed to use the installed subscription session.
+Anthropic, OpenAI, and xAI API key variables before launch and is designed to use the installed
+subscription session of whichever provider you selected.
 Git remains the recovery net. Review all security-surface notes before production cutover.
 
 ## Verification

@@ -6,7 +6,8 @@ description: Set up, start, inspect, resume, stop, or review an unattended NIGHT
 # NIGHT LOOP
 
 NIGHT LOOP wraps one native Claude Code session with a durable contract, safety hooks, and
-independent verification. It does not route work to other model providers.
+independent verification. The implementer can also be Codex or Grok Build, chosen once with
+`setup --provider`; the run never routes between providers.
 
 Run every command through the repository's single Bun entry point:
 
@@ -14,8 +15,8 @@ Run every command through the repository's single Bun entry point:
 bun "$CLAUDE_PLUGIN_ROOT/src/cli.ts" <command> [options]
 ```
 
-Use `setup` while the owner is present. During setup, capture the goal, permission profile,
-limits, test-only boundaries, and any hard blocks. After setup, `start`, `full`, `status`,
+Use `setup` while the owner is present. During setup, capture the goal, provider, permission
+profile, limits, optional model and effort, test-only boundaries, and any hard blocks. After setup, `start`, `full`, `status`,
 `resume`, `stop`, and `morning` must never ask the owner a question.
 
 Prefer `start` for workspace permissions. Treat `full` as the exact alias of

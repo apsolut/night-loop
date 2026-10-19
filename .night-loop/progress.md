@@ -76,6 +76,46 @@ The SessionStart hook injects this file into each session.
   assert bun's absence from its stripped PATH (vacuous-pass risk on exotic hosts);
   local Bun is 1.3.14 vs the CI pin 1.3.8.
 
+- M10 Claude current-feature adoption, CERTIFIED by night-loop-judge on 2026-10-20 after one
+  rejection (the waiting-session spec did not pin the event type or the native status
+  field). Ground truth probed on this box: `claude --bg` prints only a short id, so the
+  full sessionId is now resolved from `claude agents --json`; `state` drives lifecycle,
+  `waitingFor` is recorded once per transition; doctor floor 2.1.300; generated env carries
+  CLAUDE_CODE_STOP_HOOK_BLOCK_CAP and CLAUDE_CODE_RESUME_INTERRUPTED_TURN; setup --model and
+  --effort reach argv and survive resume; redacted `claude logs` tail in status and the
+  receipt. Judge evidence: 6 new specs, every spot-check mutant killed.
+  Carried-forward notes: redaction has no bare `token:` key pattern (the seeded line was
+  caught by its sk-ant prefix); `waitingFor` is stored unredacted; decision 012 lists the
+  attended hooks.json and gate.ts edits the owner still has to apply.
+
+- M8 Provider-neutral turn supervisor, CERTIFIED by night-loop-judge on 2026-10-20 after
+  three rejections that each found something real: four spec gaps (provider claude
+  accepted, exact block reason persisted, exact Grok deny rules, every apply_patch path
+  gated), the in-turn Stop hook reading a re-setup step limit (fixed: armed limits reach
+  hooks through NIGHT_LOOP_MAX_STEPS and run.json), a verifier crash silently continuing
+  (fixed: HALTED=verifier_failed), and a re-setup raising the in-turn worker cap after
+  resume (fixed natively for Codex via features.multi_agent and
+  agents.max_concurrent_threads_per_session, and for every provider by resume restoring the
+  armed contract to contract.json, decision 014). Live proof outside the harness: a
+  throwaway repo reached HALTED=done through `codex exec` in one turn.
+  Carried-forward notes: gate.ts still reads the worker cap from contract.json (decision
+  012 follow-up 3); `setup` during a live run is untested; Codex workspace mode runs with
+  sandbox network access on (decision 009); the perf budget was raised to 48 KiB
+  (decision 013).
+
+- M9 Grok adapter and hook bridge, CERTIFIED by night-loop-judge on 2026-10-20 in the same
+  passes as M8. Grok Build 1.0.46 reads Claude-shaped hooks, so the bridge only renames
+  tool payloads (run_terminal_command, search_replace, apply_patch expansion) before
+  delegating to the unchanged gate, loop, resume, and events hooks. The hard-won fact: Grok
+  on Windows runs hook commands through PowerShell, so the generated commands carry the
+  `&` call operator there (Codex needs the plain quoted form). Live proof outside the
+  harness: four resumed `grok -p` turns reached HALTED=done, and after the `&` fix the
+  in-turn hooks visibly ran (prompt-submit evidence, Stop hook running the full harness
+  inside the turn).
+  Carried-forward notes: `.grok/hooks/night-loop.json` is generated into the host repo
+  (ignore it there); Grok at two or more workers relies on the gate for its cap; the
+  judge could not verify the live hook execution from harness evidence alone.
+
 ## Doing
 - Nothing in flight.
 
@@ -93,9 +133,13 @@ The SessionStart hook injects this file into each session.
 - RESOLVED 2026-08-14: the owner applied the decisions/005 gate edit attended; the judge
   is exempt from the worker cap, an e2e case pins it, and generatedSettings dropped the
   settings-level Agent deny that would have fired before the gate.
+- ATTENDED (owner, from decision 012): hooks.json needs `onFailure: block` on PreToolUse and
+  `timeout: 1800` on Stop; gate.ts should deny an unparseable payload and read
+  NIGHT_LOOP_WORKERS before contract.json. The project .claude/settings.json already
+  carries the first two for dogfooding.
 
 ## Deferred
-- Multi-provider adapters for Codex, Grok, and Agy
+- An Agy adapter (no subscription CLI with a never-ask mode was verified)
 - Multi-agent delegation, worktree orchestration, multiplexing, and provider competition
 - Omni and Observator concepts beyond the event logging required by the single-agent supervisor
 
