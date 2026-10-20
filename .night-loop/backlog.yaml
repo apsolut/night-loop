@@ -109,3 +109,14 @@
     - "doctor requires Claude Code 2.1.300 or newer, reports the installed version, and the remediation names the floor"
     - "Generated settings carry CLAUDE_CODE_STOP_HOOK_BLOCK_CAP and CLAUDE_CODE_RESUME_INTERRUPTED_TURN, and setup --model and --effort reach the Claude launch argv verbatim and are preserved by resume"
     - "status and the morning receipt include the redacted tail of claude logs for the session, and a seeded credential-shaped line in that output never reaches run state, receipt, or event tape"
+
+- id: M11-stuck-detection-and-think-turns
+  depends_on: [M8-provider-neutral-turn-supervisor]
+  gated: false
+  acceptance:
+    - "The supervisor classifies a run as stuck from the event tape alone when the same red ratchet line, the same denied action category, or an unchanged working tree repeats for three consecutive turns, and a healthy seeded run is never classified as stuck"
+    - "A stuck turn-based run gets exactly one think turn: the provider is launched read-only (Codex read-only sandbox, Grok with read-only allow rules), the prompt carries the evidence and asks for a root cause and three alternatives, the answer is stored, and the next build prompt is the verifier reason plus the chosen plan"
+    - "With setup --consult codex or grok, a stuck run first gets a read-only second opinion from that provider with no edit authority and no API key in its environment, the opinion is stored and quoted in the think prompt, and setup --consult claude is rejected before any launch"
+    - "Every recovery, stuck verdict, and think outcome appends one line to .night-loop/lessons.md, and resume and think prompts carry the recent lessons"
+    - "A second identical stuck episode after a think turn gets one more think turn; a third shelves that path under Blocked in progress.md with the plan attached, tells the agent to pick another milestone, and the night continues"
+    - "A stuck Claude background session receives the think prompt as its next turn through native resume, recorded as think.injected, and its completion is detected from STEP progress"

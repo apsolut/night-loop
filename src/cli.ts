@@ -58,7 +58,7 @@ function help(): void {
     "NIGHT LOOP: a subscription coding agent does the work. NIGHT LOOP proves it was safe to leave alone and actually done.",
     "",
     "Commands:",
-    "  night-loop setup --goal <text> [--provider claude|codex|grok] [--permissions workspace|full]",
+    "  night-loop setup --goal <text> [--provider claude|codex|grok] [--consult codex|grok] [--permissions workspace|full]",
     "                   [--workers 1|auto|N] [--model <id>] [--effort <level>] [--max-steps N] [--max-relaunches N]",
     "  night-loop start [--permissions workspace|full]",
     "  night-loop full",
@@ -109,6 +109,7 @@ async function main(): Promise<void> {
     const contract = writeContract(context, {
       goal,
       provider: parseProvider(option(args, "--provider")),
+      consult: option(args, "--consult") === undefined ? undefined : parseProvider(option(args, "--consult")),
       permissions: permissionOption(args),
       model: option(args, "--model"),
       effort: option(args, "--effort"),

@@ -30,9 +30,20 @@ import {
   turnOutput,
   type PermissionProfile,
   type ProviderId,
+  type TurnMode,
   type TurnOutput,
   type WorkerLimit,
 } from "./providers";
+import {
+  appendLesson,
+  compileConsultPrompt,
+  compileThinkPrompt,
+  detectStuck,
+  extractPlan,
+  lessonsPreface,
+  readLessons,
+  type StuckVerdict,
+} from "./reflect";
 
 export type { PermissionProfile, ProviderId, WorkerLimit };
 
@@ -40,6 +51,7 @@ export interface NightContract {
   schemaVersion: 1;
   goal: string;
   provider: ProviderId;
+  consult?: Exclude<ProviderId, "claude">;
   permissions: PermissionProfile;
   model?: string;
   effort?: string;
@@ -49,6 +61,13 @@ export interface NightContract {
     workers: WorkerLimit;
   };
   createdAt: string;
+}
+
+export interface PendingThink {
+  fingerprint: string;
+  reason: string;
+  episode: number;
+  injectedStep?: number;
 }
 
 export type RunStatus =
@@ -77,6 +96,7 @@ export interface RunState {
   turns?: number;
   waitingFor?: string | null;
   logsTail?: string[];
+  pendingThink?: PendingThink;
   startedAt: string;
   updatedAt: string;
 }
@@ -92,6 +112,15 @@ interface SupervisorState {
   lastStep: number;
   stalledTicks: number;
   interactionTurns?: number;
+  progressFingerprints?: string[];
+  thinkEpisodes?: Record<string, number>;
+}
+
+// Two think turns per stuck fingerprint, then the path is shelved (decision 015).
+const THINK_EPISODE_LIMIT = 2;
+
+function stuckWindow(): number {
+  return Number(process.env.NIGHT_LOOP_STUCK_TURNS ?? 3);
 }
 
 // Consecutive turns that end on a question before the supervisor stops burning the
@@ -155,6 +184,7 @@ export function writeContract(
   input: {
     goal: string;
     provider?: ProviderId;
+    consult?: ProviderId;
     permissions?: PermissionProfile;
     model?: string;
     effort?: string;
@@ -170,10 +200,14 @@ export function writeContract(
       throw new Error(`The ${name} appears to contain a credential. Store only test credential references, never values`);
     }
   }
+  if (input.consult === "claude") {
+    throw new Error("--consult must be codex or grok: a headless Claude consult is excluded by decision 001");
+  }
   const contract: NightContract = {
     schemaVersion: 1,
     goal,
     provider: input.provider ?? "claude",
+    ...(input.consult ? { consult: input.consult } : {}),
     permissions: input.permissions ?? "workspace",
     ...(input.model ? { model: input.model } : {}),
     ...(input.effort ? { effort: input.effort } : {}),
@@ -187,6 +221,7 @@ export function writeContract(
   atomicWriteJson(contractPath(context.repo), contract);
   appendLedgerEvent(eventPath(context.repo), "contract.approved", {
     provider: contract.provider,
+    consult: contract.consult ?? null,
     permissions: contract.permissions,
     limits: contract.limits,
     model: contract.model ?? null,
@@ -375,7 +410,19 @@ function claudeArgs(repo: string, contract: NightContract, prompt: string): [str
   ];
 }
 
-function resumeClaudeArgs(repo: string, contract: NightContract, sessionId: string): [string, ...string[]] {
+const RESUME_PROMPT = "Resume NIGHT LOOP from .night-loop/progress.md and git state. Continue the next unmet milestone; fix the ratchet first if it is red.";
+
+function withLessons(repo: string, prompt: string): string {
+  const preface = lessonsPreface(repo);
+  return preface ? `${prompt}\n\n${preface.trimEnd()}` : prompt;
+}
+
+function resumeClaudeArgs(
+  repo: string,
+  contract: NightContract,
+  sessionId: string,
+  prompt: string = withLessons(repo, RESUME_PROMPT),
+): [string, ...string[]] {
   const settingsPath = loopPath(repo, "state", "claude-settings.json");
   atomicWriteJson(settingsPath, generatedSettings(contract));
   return [
@@ -391,7 +438,7 @@ function resumeClaudeArgs(repo: string, contract: NightContract, sessionId: stri
     "--plugin-dir",
     PLUGIN_ROOT,
     ...claudeSessionArgs(contract),
-    "Resume NIGHT LOOP from durable repository state.",
+    prompt,
   ];
 }
 
@@ -483,7 +530,7 @@ export async function startNightLoop(
 
   if (providerMode(contract.provider) === "turn") {
     prepareProviderFiles(context.repo, contract.provider);
-    atomicWriteFile(nextPromptPath(context.repo), compileGoal(contract));
+    atomicWriteFile(nextPromptPath(context.repo), withLessons(context.repo, compileGoal(contract)));
     state.status = "running";
     state.updatedAt = timestamp(context);
     writeRun(context.repo, state);
@@ -497,7 +544,7 @@ export async function startNightLoop(
     return state;
   }
 
-  const result = await runClaude(context, claudeArgs(context.repo, contract, compileGoal(contract)));
+  const result = await runClaude(context, claudeArgs(context.repo, contract, withLessons(context.repo, compileGoal(contract))));
   if (isInteractionRequest(`${result.stdout}\n${result.stderr}`)) {
     state.status = "interaction_required";
     state.updatedAt = timestamp(context);
@@ -698,10 +745,12 @@ export async function resumeNightLoop(context: CommandContext): Promise<RunState
   if (providerMode(state.provider) === "turn") {
     prepareProviderFiles(context.repo, state.provider);
     rmSync(haltedPath(context.repo), { force: true });
-    if (!pathExists(nextPromptPath(context.repo))) {
-      atomicWriteFile(nextPromptPath(context.repo),
-        "Resume NIGHT LOOP from .night-loop/progress.md and git state. Continue the next unmet milestone; fix the ratchet first if it is red.");
-    }
+    // The queued prompt (verifier reason or think prompt) survives a stop; resume refreshes
+    // the lessons section so the provider sees what was learned since.
+    const queued = pathExists(nextPromptPath(context.repo))
+      ? readFileSync(nextPromptPath(context.repo), "utf8").split("\n\nLessons recorded so far:")[0]!
+      : RESUME_PROMPT;
+    atomicWriteFile(nextPromptPath(context.repo), withLessons(context.repo, queued));
     state.status = "running";
     atomicWriteFile(activeMarker(context.repo), `${state.runId}\n`);
     writeRun(context.repo, state);
@@ -826,6 +875,7 @@ export async function superviseNightLoop(
         backoffSeconds,
         reason: alive ? "stalled" : "session_missing",
       });
+      appendLesson(context.repo, `recovery(${alive ? "stalled" : "session_missing"}) relaunch ${saved.relaunches} at step ${step}`, timestamp(context));
       atomicWriteJson(supervisorStatePath(context.repo), saved);
       await delay(process.env.NIGHT_LOOP_TEST_BACKOFF_MS === undefined
         ? backoffSeconds * 1000
@@ -838,11 +888,68 @@ export async function superviseNightLoop(
       }
       await resumeNightLoop(context);
     } else {
+      await reflectOnClaudeSession(context, state, saved, step, saved.stalledTicks === 0);
       atomicWriteJson(supervisorStatePath(context.repo), saved);
     }
     if (options.once) return;
     await delay(Number(process.env.NIGHT_LOOP_POLL_MS ?? 15000));
   }
+}
+
+// The Claude session is hook-driven, so the think prompt is delivered as its next turn
+// through native resume (2.1.284) and its completion is read from STEP progress.
+async function reflectOnClaudeSession(
+  context: CommandContext,
+  loopState: RunState,
+  saved: SupervisorState,
+  step: number,
+  stepAdvanced: boolean,
+): Promise<void> {
+  // The status poll just refreshed run.json (full UUID, waitingFor); work on that copy.
+  const state = readRun(context.repo) ?? loopState;
+  // One tree fingerprint per Stop-hook step, so "unchanged for three steps" means the same
+  // thing for a Claude session as "unchanged for three turns" does for Codex or Grok.
+  if (stepAdvanced && step > 0 && !state.pendingThink) {
+    const fingerprint = await progressFingerprint(context.repo);
+    if (fingerprint) saved.progressFingerprints = [...(saved.progressFingerprints ?? []), fingerprint].slice(-stuckWindow());
+  }
+  const pending = state.pendingThink;
+  if (pending) {
+    if (pending.injectedStep !== undefined && step > pending.injectedStep) {
+      appendLedgerEvent(eventPath(context.repo), "think.completed", {
+        fingerprint: pending.fingerprint,
+        reason: pending.reason,
+        episode: pending.episode,
+        plan: null,
+      }, timestamp(context));
+      appendLesson(context.repo, `think(${pending.reason}) delivered to claude at step ${pending.injectedStep}, continued at step ${step}`, timestamp(context));
+      delete state.pendingThink;
+      state.updatedAt = timestamp(context);
+      writeRun(context.repo, state);
+    }
+    return;
+  }
+  const stuck = detectStuck(readLedger(eventPath(context.repo)), stuckWindow(), saved.progressFingerprints ?? []);
+  if (!stuck.stuck || !state.nativeSessionId) return;
+  const contract = preservedContract(context.repo, state);
+  const decision = await scheduleThink(context, state, contract, saved, stuck);
+  saved.progressFingerprints = [];
+  const prompt = decision.kind === "think" ? decision.prompt : decision.instruction;
+  const result = await runClaude(context, resumeClaudeArgs(context.repo, contract, state.nativeSessionId, prompt));
+  const delivered = result.exitCode === 0;
+  // A failed delivery neither resets the episode nor leaves a think pending: the next poll
+  // sees the same stuck evidence and tries again, bounded by the episode limit.
+  const eventType = !delivered ? "think.inject_failed" : decision.kind === "think" ? "think.injected" : "shelve.injected";
+  appendLedgerEvent(eventPath(context.repo), eventType, {
+    fingerprint: stuck.fingerprint,
+    exitCode: result.exitCode,
+    step,
+  }, timestamp(context));
+  if (decision.kind === "think" && delivered) {
+    state.pendingThink = { ...decision.pending, injectedStep: step };
+  }
+  state.updatedAt = timestamp(context);
+  writeRun(context.repo, state);
 }
 
 interface TurnResult {
@@ -861,6 +968,7 @@ async function runTurn(
   contract: NightContract,
   prompt: string,
   limits: { pollMs: number; stallLimit: number },
+  mode: TurnMode = "build",
 ): Promise<TurnResult> {
   const provider = state.provider as Exclude<ProviderId, "claude">;
   const session = state.sessionEstablished && state.nativeSessionId
@@ -871,7 +979,7 @@ async function runTurn(
     state.updatedAt = timestamp(context);
     writeRun(context.repo, state);
   }
-  const launch = turnLaunch(provider, context.repo, contract, prompt, session);
+  const launch = turnLaunch(provider, context.repo, contract, prompt, session, mode);
   const env: Record<string, string | undefined> = {
     ...process.env,
     ...launch.env,
@@ -960,6 +1068,140 @@ async function runVerifier(context: CommandContext, contract: NightContract): Pr
   try { return JSON.parse(line) as { decision?: string; reason?: string }; } catch { return {}; }
 }
 
+// A hash of the working tree so "three turns, nothing changed" is a fact, not a feeling.
+// Undefined when the repository has no git, so a plain fixture is never called stuck.
+async function progressFingerprint(repo: string): Promise<string | undefined> {
+  const status = await runCommand(["git", "status", "--porcelain"], { cwd: repo });
+  if (status.exitCode !== 0) return undefined;
+  const diff = await runCommand(["git", "diff", "HEAD"], { cwd: repo });
+  const head = await runCommand(["git", "rev-parse", "HEAD"], { cwd: repo });
+  // Untracked files show in porcelain by name only; their contents count as progress too.
+  const untracked = await runCommand(["git", "ls-files", "--others", "--exclude-standard"], { cwd: repo });
+  const contents: string[] = [];
+  for (const file of untracked.stdout.split(/\r?\n/).filter(Boolean).slice(0, 500)) {
+    try {
+      const blob = Bun.file(join(repo, file));
+      contents.push(`${file}:${blob.size}:${blob.size <= 1_000_000 ? Bun.hash(await blob.arrayBuffer()).toString(16) : "large"}`);
+    } catch {
+      contents.push(`${file}:unreadable`);
+    }
+  }
+  return Bun.hash(`${head.stdout}\n${status.stdout}\n${diff.stdout}\n${contents.join("\n")}`).toString(16);
+}
+
+// A read-only second opinion from the configured consultant (decision 015). Never edits,
+// never resumes the implementer's session, never sees an API key.
+async function runConsult(
+  context: CommandContext,
+  contract: NightContract,
+  verdict: StuckVerdict,
+): Promise<{ provider: string; text: string } | undefined> {
+  const provider = contract.consult;
+  if (!provider) return undefined;
+  const launch = turnLaunch(provider, context.repo, contract, compileConsultPrompt(verdict, readLessons(context.repo)), {}, "consult");
+  const result = await runCommand(launch.command, { cwd: context.repo, env: launch.env, unsetEnv: ALL_SECRET_ENV });
+  const text = redactSecrets(turnOutput(provider, result.stdout).lastMessage).trim().slice(0, 4000);
+  if (result.exitCode !== 0 || !text) {
+    appendLedgerEvent(eventPath(context.repo), "consult.failed", {
+      provider,
+      exitCode: result.exitCode,
+      stderr: redactSecrets(result.stderr).slice(0, 300),
+    }, timestamp(context));
+    return undefined;
+  }
+  atomicWriteFile(loopPath(context.repo, "state", "CONSULT.md"), `# Consult (${provider})\n\n${text}\n`);
+  appendLedgerEvent(eventPath(context.repo), "consult.completed", {
+    provider,
+    bytes: Buffer.byteLength(text),
+    plan: extractPlan(text) ?? null,
+  }, timestamp(context));
+  appendLesson(context.repo, `consult(${provider}): ${extractPlan(text) ?? text.slice(0, 200)}`, timestamp(context));
+  return { provider, text };
+}
+
+function progressPath(repo: string): string {
+  return loopPath(repo, "progress.md");
+}
+
+// Third episode on the same fingerprint: the path goes under Blocked with the plan attached
+// and the agent is told to pick another milestone. The night continues.
+function shelveStuckPath(context: CommandContext, state: RunState, verdict: StuckVerdict, plan: string | undefined): string {
+  const now = timestamp(context);
+  const line = `- SHELVED by the supervisor on ${now} after ${THINK_EPISODE_LIMIT} think turns (${verdict.reason}): ` +
+    `${verdict.evidence.join("; ").slice(0, 300)}. Last plan: ${plan ?? "none recorded"}`;
+  const path = progressPath(context.repo);
+  const current = pathExists(path) ? readFileSync(path, "utf8") : "# Progress Ledger\n";
+  const heading = "## Blocked / needs human";
+  const index = current.indexOf(heading);
+  const updated = index >= 0
+    ? `${current.slice(0, index + heading.length)}\n${line}${current.slice(index + heading.length)}`
+    : `${current.trimEnd()}\n\n${heading}\n${line}\n`;
+  atomicWriteFile(path, updated);
+  appendLedgerEvent(eventPath(context.repo), "stuck.shelved", {
+    fingerprint: verdict.fingerprint,
+    reason: verdict.reason,
+    plan: plan ?? null,
+  }, now);
+  appendLesson(context.repo, `shelved(${verdict.reason}): ${verdict.evidence[0] ?? ""}`, now);
+  return `The supervisor SHELVED the current path after ${THINK_EPISODE_LIMIT} think turns on the same failure ` +
+    `(${verdict.evidence.join("; ").slice(0, 200)}). It is recorded under Blocked in .night-loop/progress.md. ` +
+    "Do not retry it tonight. Pick a different buildable milestone and continue.";
+}
+
+// Decides what happens after a stuck verdict: a think turn, or a shelve on the third episode.
+async function scheduleThink(
+  context: CommandContext,
+  state: RunState,
+  contract: NightContract,
+  saved: SupervisorState,
+  verdict: StuckVerdict,
+): Promise<{ kind: "think"; prompt: string; pending: PendingThink } | { kind: "shelve"; instruction: string }> {
+  const fingerprint = verdict.fingerprint ?? "unknown";
+  const episodes = saved.thinkEpisodes ?? {};
+  const episode = (episodes[fingerprint] ?? 0) + 1;
+  const now = timestamp(context);
+  appendLedgerEvent(eventPath(context.repo), "stuck.detected", {
+    reason: verdict.reason,
+    fingerprint,
+    episode,
+    evidence: verdict.evidence,
+  }, now);
+  appendLesson(context.repo, `stuck(${verdict.reason}) episode ${episode}: ${verdict.evidence[0] ?? ""}`, now);
+  if (episode > THINK_EPISODE_LIMIT) {
+    const thinkPath = loopPath(context.repo, "state", "THINK.md");
+    const lastPlan = pathExists(thinkPath) ? extractPlan(readFileSync(thinkPath, "utf8")) : undefined;
+    return { kind: "shelve", instruction: shelveStuckPath(context, state, verdict, lastPlan) };
+  }
+  episodes[fingerprint] = episode;
+  saved.thinkEpisodes = episodes;
+  const consult = await runConsult(context, contract, verdict);
+  const prompt = compileThinkPrompt(verdict, readLessons(context.repo), consult);
+  appendLedgerEvent(eventPath(context.repo), "think.scheduled", {
+    reason: verdict.reason,
+    fingerprint,
+    episode,
+    consult: consult?.provider ?? null,
+  }, now);
+  return { kind: "think", prompt, pending: { fingerprint, reason: String(verdict.reason), episode } };
+}
+
+function completeThink(context: CommandContext, state: RunState, text: string): string | undefined {
+  const pending = state.pendingThink;
+  if (!pending) return undefined;
+  const redacted = redactSecrets(text).trim();
+  const plan = extractPlan(redacted) ?? redacted.split(/\r?\n/).filter(Boolean).at(-1)?.slice(0, 300);
+  if (redacted) atomicWriteFile(loopPath(context.repo, "state", "THINK.md"), `# Think turn (${pending.reason}, episode ${pending.episode})\n\n${redacted}\n`);
+  appendLedgerEvent(eventPath(context.repo), "think.completed", {
+    fingerprint: pending.fingerprint,
+    reason: pending.reason,
+    episode: pending.episode,
+    plan: plan ?? null,
+  }, timestamp(context));
+  appendLesson(context.repo, `think(${pending.reason}): ${plan ?? "no plan line"}`, timestamp(context));
+  delete state.pendingThink;
+  return plan;
+}
+
 function finalizeHalt(context: CommandContext, state: RunState, reason: string, event?: string): void {
   state.status = haltStatus(reason);
   state.updatedAt = timestamp(context);
@@ -993,7 +1235,8 @@ async function superviseTurns(context: CommandContext, options: SuperviseOptions
       resume: Boolean(state.sessionEstablished && state.nativeSessionId),
       promptHash: Bun.hash(prompt).toString(16),
     }, timestamp(context));
-    const result = await runTurn(context, state, contract, prompt, { pollMs, stallLimit });
+    const thinking = Boolean(state.pendingThink);
+    const result = await runTurn(context, state, contract, prompt, { pollMs, stallLimit }, thinking ? "think" : "build");
     state.turns = turn;
     if (result.output.sessionId && !state.nativeSessionId) state.nativeSessionId = result.output.sessionId;
     state.updatedAt = timestamp(context);
@@ -1027,11 +1270,13 @@ async function superviseTurns(context: CommandContext, options: SuperviseOptions
       saved.relaunches += 1;
       saved.stalledTicks = 0;
       const backoffSeconds = Math.min(600, 10 * (2 ** Math.min(saved.relaunches, 6)));
+      const recoveryReason = result.killed === "stalled" ? "stalled" : "provider_exit";
       appendLedgerEvent(eventPath(context.repo), "supervisor.recovery", {
         relaunch: saved.relaunches,
         backoffSeconds,
-        reason: result.killed === "stalled" ? "stalled" : "provider_exit",
+        reason: recoveryReason,
       });
+      appendLesson(context.repo, `recovery(${recoveryReason}) relaunch ${saved.relaunches} on turn ${turn}: exit ${result.exitCode}`, state.updatedAt);
       atomicWriteJson(supervisorStatePath(context.repo), saved);
       await delay(process.env.NIGHT_LOOP_TEST_BACKOFF_MS === undefined
         ? backoffSeconds * 1000
@@ -1062,6 +1307,8 @@ async function superviseTurns(context: CommandContext, options: SuperviseOptions
       saved.interactionTurns = 0;
     }
     saved.lastStep = readStep(context.repo);
+    const fingerprint = thinking ? undefined : await progressFingerprint(context.repo);
+    if (fingerprint) saved.progressFingerprints = [...(saved.progressFingerprints ?? []), fingerprint].slice(-stuckWindow());
     atomicWriteJson(supervisorStatePath(context.repo), saved);
     const verdict = await runVerifier(context, contract);
     if (pathExists(halted)) {
@@ -1076,7 +1323,27 @@ async function superviseTurns(context: CommandContext, options: SuperviseOptions
       finalizeHalt(context, state, "verifier_failed", "supervisor.verifier_failed");
       return;
     }
-    const next = verdict.reason;
+    let next = verdict.reason;
+    if (thinking) {
+      const plan = completeThink(context, state, result.output.lastMessage);
+      saved.progressFingerprints = [];
+      if (plan) next = `${verdict.reason}\n\nApply the plan from your think turn:\n${plan}`;
+      writeRun(context.repo, state);
+    } else {
+      const stuck = detectStuck(readLedger(eventPath(context.repo)), stuckWindow(), saved.progressFingerprints ?? []);
+      if (stuck.stuck) {
+        const decision = await scheduleThink(context, state, contract, saved, stuck);
+        saved.progressFingerprints = [];
+        if (decision.kind === "think") {
+          next = decision.prompt;
+          state.pendingThink = decision.pending;
+        } else {
+          next = `${verdict.reason}\n\n${decision.instruction}`;
+        }
+        writeRun(context.repo, state);
+      }
+    }
+    atomicWriteJson(supervisorStatePath(context.repo), saved);
     atomicWriteFile(nextPromptPath(context.repo), next);
     appendLedgerEvent(eventPath(context.repo), "turn.next_prompt", {
       turn,

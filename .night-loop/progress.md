@@ -116,12 +116,27 @@ The SessionStart hook injects this file into each session.
   (ignore it there); Grok at two or more workers relies on the gate for its cap; the
   judge could not verify the live hook execution from harness evidence alone.
 
+- M11 Stuck detection and think turns, CERTIFIED by night-loop-judge on 2026-10-20 after one
+  rejection (lessons on recovery and on resume and think prompts were unasserted, and a
+  `>=` mutant on the Claude completion check survived). The supervisor now reads its own
+  tape: three identical red lines, three identical denied categories, or three identical
+  tree fingerprints is a stuck verdict; the implementer gets one read-only think turn
+  (Codex read-only sandbox, Grok Read/Grep/Glob, Claude via native resume as the next
+  turn) whose PLAN line feeds the next build prompt; `setup --consult codex|grok` adds a
+  read-only, ephemeral second opinion first; every recovery, verdict, consult, and think
+  appends to .night-loop/lessons.md, carried by resume and think prompts; the third
+  episode on one fingerprint shelves the path under Blocked and the night continues.
+  Judge evidence: 7 e2e and 6 unit specs, all eight mutants killed (decision 015).
+  Carried-forward notes: `think.inject_failed` and the Claude tree-fingerprint path exist
+  in code but have no spec; the repeated-denied-category case is unit-level only; think
+  and consult turns are read-only by provider flags, not by the gate (Claude think turns
+  are instruction-only), so review before production cutover.
+
 ## Doing
 - Nothing in flight.
 
 ## Next
-- M7 Live Claude smoke (owner approved test authentication on 2026-08-14; buildable;
-  the last open milestone)
+- M7 Live Claude smoke (owner approved test authentication on 2026-08-14; buildable)
 
 ## Blocked / needs human
 <!-- gated milestones and decisions, with the risk surface that could not be auto-verified -->

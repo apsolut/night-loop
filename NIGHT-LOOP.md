@@ -158,6 +158,31 @@ Resume also writes the armed profile, limits, model, effort, and provider back t
 in the tape (decision 014). The gate reads that file for its worker cap, so a resumed night can
 never be loosened from disk; the new contract applies to the next `start`.
 
+## Stuck detection and think turns
+
+The supervisor keeps a slow brain next to the fast loop (decision 015):
+
+1. After every turn (or poll, for Claude) it runs `detectStuck` over the tape since the last
+   think or shelve: three identical `Ratchet is RED` lines, three turns each carrying the same
+   `policy.blocked` category, or three identical working-tree fingerprints (git status, diff,
+   and untracked contents) mean stuck.
+2. A stuck verdict appends `stuck.detected`, a lesson, and schedules a think turn
+   (`think.scheduled`). With `--consult`, a read-only consultant runs first (`consult.completed`,
+   `state/CONSULT.md`).
+3. The think turn is read-only and hook-light: the bridge skips the Stop, resume, and events
+   hooks when `NIGHT_LOOP_THINK=1`, so a reasoning turn is never told to keep building. Its
+   answer lands in `state/THINK.md`, its `PLAN:` line in `think.completed` and the lessons file,
+   and the next build prompt is the verifier reason plus that plan.
+4. For Claude the prompt is delivered with `claude --resume <uuid> --bg "<prompt>"`
+   (`think.injected`); completion is read from STEP progress.
+5. Episodes are counted per fingerprint. The third one shelves the path: a `SHELVED` line under
+   Blocked in `progress.md`, `stuck.shelved` in the tape, and an instruction to pick another
+   milestone. ACTIVE stays; the night continues.
+
+State added for this: `.night-loop/lessons.md` (committed, appended by the supervisor),
+`state/THINK.md`, `state/CONSULT.md`, `pendingThink` on the run, and `thinkEpisodes` plus
+`progressFingerprints` in `supervisor.json`.
+
 ## Morning Receipt
 
 Run:

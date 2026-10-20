@@ -67,6 +67,10 @@ const repo = resolve(
     || String(payload.cwd ?? payload.workspaceRoot ?? process.cwd()),
 );
 
+// Think and consult turns are read-only reasoning turns (decision 015): the gate still
+// runs, but the verifier, the resume injection, and the event firewall stay out.
+if (hook !== "gate" && process.env.NIGHT_LOOP_THINK === "1") process.exit(0);
+
 // Grok also fires Stop at session teardown. There is no turn left to continue, so the
 // verifier must not run (and must not count a step) for that fire.
 if (hook === "loop" && provider === "grok" && payload.reason !== undefined && payload.reason !== "end_turn") {

@@ -140,19 +140,25 @@ export function codexSandbox(permissions: PermissionProfile): "workspace-write" 
   return permissions === "full" ? "danger-full-access" : "workspace-write";
 }
 
+// build: the implementer turn. think: same session, read-only, no Stop or resume hooks.
+// consult: a fresh, ephemeral, read-only session of another provider (decision 015).
+export type TurnMode = "build" | "think" | "consult";
+
 export function codexTurnArgs(
   repo: string,
   contract: ProviderContract,
   prompt: string,
   sessionId?: string,
+  mode: TurnMode = "build",
 ): [string, ...string[]] {
+  const readOnly = mode !== "build";
   const args: [string, ...string[]] = [
     "exec",
     "--json",
     "-C",
     repo,
     "--sandbox",
-    codexSandbox(contract.permissions),
+    readOnly ? "read-only" : codexSandbox(contract.permissions),
     "-c",
     'approval_policy="never"',
     "-c",
@@ -160,19 +166,22 @@ export function codexTurnArgs(
     "--dangerously-bypass-hook-trust",
     "--skip-git-repo-check",
     "--output-last-message",
-    join(repo, ".night-loop", "state", "last-message.txt"),
-    ...codexHookOverrides(),
+    join(repo, ".night-loop", "state", mode === "build" ? "last-message.txt" : `${mode}-message.txt`),
+    ...(mode === "build" ? codexHookOverrides() : []),
   ];
+  if (mode === "consult") args.push("--ephemeral");
   // The worker cap is enforced natively from the armed contract, so a later attended setup
   // cannot loosen it through the gate's contract.json read (M8 finding, 2026-10-20).
   if (contract.limits.workers === 1) args.push("-c", "features.multi_agent=false");
   else args.push("-c", `agents.max_concurrent_threads_per_session=${contract.limits.workers === "auto" ? 4 : contract.limits.workers}`);
   if (contract.model) args.push("--model", contract.model);
   if (contract.effort) args.push("-c", `model_reasoning_effort=${toml(contract.effort)}`);
-  if (sessionId) args.push("resume", sessionId, prompt);
+  if (sessionId && mode !== "consult") args.push("resume", sessionId, prompt);
   else args.push(prompt);
   return args;
 }
+
+export const READ_ONLY_TOOLS = ["Read", "Grep", "Glob"] as const;
 
 export function grokPermissionMode(permissions: PermissionProfile): "dontAsk" | "bypassPermissions" {
   return permissions === "full" ? "bypassPermissions" : "dontAsk";
@@ -183,7 +192,9 @@ export function grokTurnArgs(
   contract: ProviderContract,
   prompt: string,
   session: { resume?: string; create?: string },
+  mode: TurnMode = "build",
 ): [string, ...string[]] {
+  const readOnly = mode !== "build";
   const args: [string, ...string[]] = [
     "-p",
     prompt,
@@ -193,19 +204,22 @@ export function grokTurnArgs(
     repo,
     "--trust",
     "--permission-mode",
-    grokPermissionMode(contract.permissions),
+    readOnly ? "dontAsk" : grokPermissionMode(contract.permissions),
     "--no-plan",
     "--disable-web-search",
     "--max-turns",
-    String(GROK_MAX_TURNS),
+    String(mode === "build" ? GROK_MAX_TURNS : 20),
   ];
-  if (contract.limits.workers === 1) args.push("--no-subagents");
-  if (contract.permissions === "workspace") {
+  if (contract.limits.workers === 1 || readOnly) args.push("--no-subagents");
+  if (readOnly) {
+    for (const tool of READ_ONLY_TOOLS) args.push("--allow", tool);
+  } else if (contract.permissions === "workspace") {
     for (const tool of ALLOWED_TOOLS) args.push("--allow", tool);
   }
   for (const rule of DENY_RULES) args.push("--deny", rule);
   if (contract.model) args.push("--model", contract.model);
   if (contract.effort) args.push("--reasoning-effort", contract.effort);
+  if (mode === "consult") return args;
   if (session.resume) args.push("--resume", session.resume);
   else if (session.create) args.push("--session-id", session.create);
   return args;
@@ -276,14 +290,18 @@ export function turnLaunch(
   contract: ProviderContract,
   prompt: string,
   session: { resume?: string; create?: string },
+  mode: TurnMode = "build",
 ): TurnLaunch {
   const args = provider === "codex"
-    ? codexTurnArgs(repo, contract, prompt, session.resume)
-    : grokTurnArgs(repo, contract, prompt, session);
+    ? codexTurnArgs(repo, contract, prompt, session.resume, mode)
+    : grokTurnArgs(repo, contract, prompt, session, mode);
   const shim = providerShim(provider);
   const command: [string, ...string[]] = shim
     ? [providerBin(provider), shim, ...args]
     : [providerBin(provider), ...args];
   const env: Record<string, string> = provider === "grok" ? { GROK_DISABLE_AUTOUPDATER: "1" } : {};
+  // Think and consult turns are read-only: the hook bridge skips the Stop, resume, and
+  // events hooks for them so a read-only turn is never told to keep building.
+  if (mode !== "build") env.NIGHT_LOOP_THINK = "1";
   return { command, env };
 }

@@ -87,7 +87,7 @@ or control-plane changes.
 
 | Command | Behavior |
 |---|---|
-| `setup` | The only attended command. Records goal, provider, permission profile, limits, worker cap, and optional `--model` and `--effort`. |
+| `setup` | The only attended command. Records goal, provider, permission profile, limits, worker cap, and optional `--model`, `--effort`, and `--consult`. |
 | `start` | Starts one native `claude --bg` session in `dontAsk` mode by default. For Codex or Grok, starts the detached turn supervisor. |
 | `full` | Exact alias for `start --permissions full`, with no confirmation. |
 | `status` | Combines durable state with `claude agents --json` and a redacted `claude logs` tail, or with the provider process state. |
@@ -145,6 +145,28 @@ request, so the sentinel is itself testable.
    turn, and resumes the recorded session under the same bound.
 6. The append-only JSONL event tape is SHA-256 chained. The Morning Receipt verifies the chain and
    reports criteria, tests, verdicts, recoveries, blocked actions, and rollback instructions.
+
+## When it gets stuck: think turns, a second opinion, and lessons
+
+Shelving a blocked milestone keeps the night going, but circling on the same failure used to
+look like progress. The supervisor now reads its own event tape (decision 015):
+
+- **Stuck detector.** The same red ratchet line, the same denied action category, or an unchanged
+  working tree for three consecutive turns is a stuck verdict. It is deterministic and runs on
+  every turn (Codex, Grok) or poll (Claude).
+- **Think turn.** A stuck run gets one read-only turn: Codex in a `read-only` sandbox, Grok with
+  allow rules for Read, Grep, and Glob only, Claude through native resume as its next turn. The
+  prompt carries the evidence and asks for a root cause, three alternatives with costs, and one
+  `PLAN:` line. The plan is appended to the next build prompt.
+- **Second opinion.** `setup --consult codex` or `--consult grok` runs a fresh, ephemeral,
+  read-only session of that other provider first and quotes its answer in the think prompt. It
+  never edits and never sees an API key. Claude cannot be the consultant (decision 001).
+- **Lessons.** Every recovery, stuck verdict, consult, and think outcome appends one line to
+  `.night-loop/lessons.md`; resume and think prompts carry the last twelve. That is the memory
+  across nights.
+- **Bounds.** Two think turns per stuck fingerprint. The third episode shelves the path under
+  Blocked in `progress.md` with the last plan attached and tells the agent to pick another
+  milestone. Think turns count against the step cap like any other turn.
 
 ## Native parallelism, kept optional
 
