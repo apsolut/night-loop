@@ -208,9 +208,23 @@ bun run test:screenshot
 bun run perf
 ```
 
-CI defines the same deterministic suite on Windows, Linux, and macOS. Cross-OS certification and a
-live authenticated Claude smoke remain hard-blocked until those external runners and test
-authentication are available.
+CI defines the same deterministic suite on Windows, Linux, and macOS (certified from live runner
+evidence, M6).
+
+### Live smoke against the real Claude Code
+
+```sh
+bun run smoke:live            # or: bun run smoke:live --probe-only
+```
+
+The runner launches the installed Claude Code twice with every metered key unset: a bounded probe
+in an empty folder (must end `done`, answer without a question, and leave no file), then one
+seeded backlog task in the jail `.night-loop/state/live-smoke/jail` through the ordinary `setup`,
+`start`, supervisor, gate, and Stop-hook path. The script verifies the fixture file, the untouched
+local bare remote, the gate denials, and the halt reason itself, then writes a redacted,
+credential-scanned record to `.night-loop/research/`. The jail is a git repository, so Claude
+treats it as its own project: trust that exact path once in an attended `claude` session, or the
+runner exits 4 with that instruction (decision 016). The probe needs no trust step.
 
 See [NIGHT-LOOP.md](NIGHT-LOOP.md) for the operator protocol and
 [judge-and-flake-reliability.md](judge-and-flake-reliability.md) for the evidence model.

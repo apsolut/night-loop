@@ -127,16 +127,33 @@ The SessionStart hook injects this file into each session.
   appends to .night-loop/lessons.md, carried by resume and think prompts; the third
   episode on one fingerprint shelves the path under Blocked and the night continues.
   Judge evidence: 7 e2e and 6 unit specs, all eight mutants killed (decision 015).
-  Carried-forward notes: `think.inject_failed` and the Claude tree-fingerprint path exist
-  in code but have no spec; the repeated-denied-category case is unit-level only; think
-  and consult turns are read-only by provider flags, not by the gate (Claude think turns
-  are instruction-only), so review before production cutover.
+  Carried-forward notes: think and consult turns are read-only by provider flags, not by the
+  gate (Claude think turns are instruction-only), so review before production cutover.
+  Follow-up on 2026-10-20: the three untested paths now have e2e carriers in brain.test.ts
+  (`think.inject_failed` with retry on the next poll, the Claude tree-fingerprint
+  `no_progress` path with a busy-tree control, and `repeated_block` driven by the real hook
+  bridge inside fake Codex turns); 10 brain specs green. Gate enforcement for turn-provider
+  think turns is in the attended patch `.night-loop/attended/decision-012.patch`. The judge
+  rejected the first pass because no spec distinguished "same denied category" from "any
+  denied category" (a `>= 1` mutant survived); reflect.test.ts now carries differing and
+  two-of-three controls. Judge note to carry forward: a failed Claude think delivery consumes
+  an episode, so two failed deliveries in a row shelve the path before any think turn reaches
+  Claude. Flake to quarantine: providers.test.ts "a verifier that prints nothing halts the run"
+  went red once inside a full suite run and passed 6 of 6 alone.
 
 ## Doing
-- Nothing in flight.
+- M7 Live Claude smoke: HALF DONE on 2026-10-20. `bun run smoke:live` (scripts/live-smoke.ts,
+  decision 016) ran the real Claude Code 2.1.304 probe from an empty folder: state done,
+  reply PROBE-OK, no question, no files, checkout untouched. The machine record is
+  research/2026-10-20-live-claude-smoke-probe.json (written by `--probe-only`, asserted by a
+  unit spec); the .md next to it is the transcription.
+  The jailed task half is coded and dry-run to the launch, where Claude refuses the jail as an
+  untrusted project; it needs one attended trust acceptance (TODO.md item 1), then the same
+  command writes the full record and the judge can certify. Unit carriers: 4 specs in
+  test/unit/live-smoke.test.ts, including the committed-record check that runs once a record exists.
 
 ## Next
-- M7 Live Claude smoke (owner approved test authentication on 2026-08-14; buildable)
+- M7 Live Claude smoke: rerun `bun run smoke:live` after the trust step, then invoke the judge.
 
 ## Blocked / needs human
 <!-- gated milestones and decisions, with the risk surface that could not be auto-verified -->
@@ -144,14 +161,20 @@ The SessionStart hook injects this file into each session.
   Dockerfile fixture is pinned to bun-v1.3.8 and defaults to doctor, but a literal
   Linux container run is deferred to external runners.
 - M6 Cross-OS matrix: needs windows-latest, ubuntu-latest, and macos-latest GitHub runners.
-- M7 Live Claude smoke: needs owner-approved test authentication.
+- M7 Live Claude smoke: the jail path `.night-loop/state/live-smoke/jail` must be trusted once
+  in an attended `claude` session (Claude refuses nested git roots as untrusted projects;
+  decision 016). Authentication itself was approved on 2026-08-14 and works (probe half green).
 - RESOLVED 2026-08-14: the owner applied the decisions/005 gate edit attended; the judge
   is exempt from the worker cap, an e2e case pins it, and generatedSettings dropped the
   settings-level Agent deny that would have fired before the gate.
 - ATTENDED (owner, from decision 012): hooks.json needs `onFailure: block` on PreToolUse and
   `timeout: 1800` on Stop; gate.ts should deny an unparseable payload and read
   NIGHT_LOOP_WORKERS before contract.json. The project .claude/settings.json already
-  carries the first two for dogfooding.
+  carries the first two for dogfooding. On 2026-10-20 these edits, plus gate enforcement of
+  read-only think turns for Codex and Grok, were prepared as
+  `.night-loop/attended/decision-012.patch` with their own spec (gate-attended.test.ts) and
+  validated green in a throwaway worktree (typecheck, lint, 56 gate and CLI specs). The live
+  control plane is untouched; `git apply` is the owner's step (TODO.md item 2).
 
 ## Deferred
 - An Agy adapter (no subscription CLI with a never-ask mode was verified)
@@ -163,3 +186,7 @@ The SessionStart hook injects this file into each session.
 - 2026-08-13: `.apsolut-agents/` is private contributor tooling used to build NIGHT LOOP, not product scope. The former M1-M5 multi-agent chain was replaced before implementation.
 - 2026-08-14: Claude Git Bash has no bun on PATH, so SessionStart/PreToolUse/Stop printed
   `bun: command not found`. Hooks now go through `.night-loop/hooks/with-bun.sh`.
+- 2026-10-20: Two night-loop-judge subagents run in parallel on one checkout saw each other's
+  mutation probes as real reds. Certify one milestone at a time.
+- 2026-10-20: Claude Code trusts a workspace per git root. A plain folder under a trusted
+  checkout inherits trust; a nested repository or worktree does not (decision 016).

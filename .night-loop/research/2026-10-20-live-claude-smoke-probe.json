@@ -1,0 +1,28 @@
+{
+  "schemaVersion": 1,
+  "kind": "probe-only",
+  "recordedAt": "2026-10-20T04:14:38.043Z",
+  "platform": {
+    "os": "win32",
+    "arch": "x64"
+  },
+  "claudeVersion": "2.1.304 (Claude Code)",
+  "floor": "2.1.300",
+  "probe": {
+    "state": "done",
+    "elapsedMs": 14754,
+    "reply": "PROBE-OK",
+    "interactionRequested": false,
+    "filesAfter": [],
+    "timeoutMs": 600000,
+    "stoppedByTimeout": false
+  },
+  "checkout": {
+    "statusBefore": "M .night-loop/progress.md\n M HOWTO.md\n M README.md\n M package.json\n M test/e2e/brain.test.ts\n M test/unit/reflect.test.ts\n?? .night-loop/attended/\n?? .night-loop/decisions/016-live-smoke-trust-boundary.md\n?? .night-loop/research/2026-10-20-live-claude-smoke-probe.md\n?? TODO.md\n?? scripts/live-smoke.ts\n?? test/unit/live-smoke.test.ts",
+    "statusAfter": "M .night-loop/progress.md\n M HOWTO.md\n M README.md\n M package.json\n M test/e2e/brain.test.ts\n M test/unit/reflect.test.ts\n?? .night-loop/attended/\n?? .night-loop/decisions/016-live-smoke-trust-boundary.md\n?? .night-loop/research/2026-10-20-live-claude-smoke-probe.md\n?? TODO.md\n?? scripts/live-smoke.ts\n?? test/unit/live-smoke.test.ts",
+    "unchanged": true
+  },
+  "secretScan": {
+    "hits": 0
+  }
+}

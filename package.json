@@ -11,6 +11,7 @@
     "test:flake-baseline": "bun run scripts/flake-baseline.ts",
     "build": "bun build src/cli.ts --outdir dist --target bun",
     "perf": "bun run scripts/perf.ts",
+    "smoke:live": "bun run scripts/live-smoke.ts",
     "seed": "bun run scripts/seed.ts"
   },
   "devDependencies": {

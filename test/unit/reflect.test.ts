@@ -40,6 +40,16 @@ describe("stuck detector", () => {
     expect(detectStuck(events)).toMatchObject({ stuck: true, reason: "repeated_block", fingerprint: "block:external_or_irreversible_action:Bash" });
     const mixed = [...events.slice(0, 6), event("turn.started", { turn: 2 }), green()];
     expect(detectStuck(mixed).stuck).toBe(false);
+    // Three blocked turns with three different categories are three different problems, not a loop.
+    const differing: LedgerEvent[] = [];
+    for (const category of ["external_or_irreversible_action", "control_plane_write", "worker_cap"]) {
+      differing.push(event("turn.started", {}));
+      differing.push(event("policy.blocked", { tool: "Bash", category }));
+      differing.push(green());
+    }
+    expect(detectStuck(differing).stuck).toBe(false);
+    const twoOfThree = [...differing.slice(3, 6), ...events.slice(0, 6)];
+    expect(detectStuck(twoOfThree).stuck).toBe(false);
   });
 
   test("an unchanged working tree for the whole window is stuck, and a think turn resets the episode", () => {

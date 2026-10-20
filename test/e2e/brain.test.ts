@@ -44,6 +44,11 @@ function fakeCodex(root: string): { script: string; log: string } {
     "const secretPresent = Boolean(process.env.OPENAI_API_KEY || process.env.CODEX_API_KEY || process.env.XAI_API_KEY);",
     "appendFileSync(process.env.FAKE_CODEX_LOG!, JSON.stringify({ args, secretPresent, think: process.env.NIGHT_LOOP_THINK ?? null }) + '\\n');",
     "if (process.env.FAKE_TOUCH) appendFileSync(process.env.FAKE_TOUCH, 'work\\n');",
+    // FAKE_PUSH: the turn tries a push through the real hook bridge, as Codex's in-turn PreToolUse would.
+    "if (process.env.FAKE_PUSH && !process.env.NIGHT_LOOP_THINK) {",
+    "  const gate = Bun.spawnSync([process.execPath, process.env.FAKE_PUSH, 'gate', '--provider', 'codex'], { cwd: process.cwd(), env: { ...process.env, CLAUDE_PROJECT_DIR: process.cwd() }, stdin: new TextEncoder().encode(JSON.stringify({ hook_event_name: 'PreToolUse', tool_name: 'Bash', tool_input: { command: 'git push origin main' } })) });",
+    "  if (!gate.stdout.toString().includes('deny')) process.exit(9);",
+    "}",
     `console.log(JSON.stringify({ type: 'thread.started', thread_id: '${THREAD_ID}' }));`,
     "const text = args.includes('read-only') ? (process.env.FAKE_THINK || 'ROOT CAUSE: seed.\\nALTERNATIVES: a, b, c.\\nPLAN: swap the seed to pass.ts') : (process.env.FAKE_MESSAGE || 'Tried again.');",
     "console.log(JSON.stringify({ type: 'item.completed', item: { id: 'i', type: 'agent_message', text } }));",
@@ -78,6 +83,7 @@ function fakeClaude(root: string): { script: string; log: string } {
     "if (args.includes('--version')) console.log('2.1.303 (Claude Code)');",
     "else if (args[0] === 'agents') console.log(process.env.FAKE_AGENTS_JSON || '[]');",
     "else if (args[0] === 'stop' || args[0] === 'logs') console.log('ok');",
+    "else if (args[0] === '--resume' && process.env.FAKE_RESUME_EXIT) { console.error('seeded resume failure'); process.exit(Number(process.env.FAKE_RESUME_EXIT)); }",
     `else console.log('backgrounded · d4e5f79a · night-loop');`,
     "",
   ].join("\n"));
@@ -344,6 +350,125 @@ describe("stuck detection, think turns, consult, lessons, and shelving (M11)", (
       expect(think.think).toBe("1");
     });
   }, 60000);
+
+  test("three turns denied on the same category are stuck as repeated_block and get a think turn", async () => {
+    await withFixtureRepo("block codex", async (root) => {
+      const { script, log } = fakeCodex(root);
+      const env = { ...codexEnv(script, log), FAKE_PUSH: join(import.meta.dir, "..", "..", "src", "hook-bridge.ts") };
+      seedHarness(root, true);
+      await cli(root, env, "setup", "--goal", "Push night", "--provider", "codex");
+      await cli(root, env, "start");
+      await once(root, env, 2);
+      let events = await tape(root);
+      expect(events.split('"category":"external_or_irreversible_action"').length - 1).toBe(2);
+      expect(events).not.toContain('"type":"stuck.detected"');
+      await once(root, env);
+      events = await tape(root);
+      expect(events).toContain('"reason":"repeated_block"');
+      expect(events).toContain('"fingerprint":"block:external_or_irreversible_action:Bash"');
+      expect(events).toContain('"type":"think.scheduled"');
+      const prompt = await Bun.file(statePath(root, "NEXT_PROMPT")).text();
+      expect(prompt).toContain("THINK TURN");
+      expect(prompt).toContain("external_or_irreversible_action:Bash");
+      // The think turn itself runs read-only and does not try the push again.
+      await once(root, env);
+      const think = (await calls(log)).at(-1)!;
+      expect(think.think).toBe("1");
+      expect(think.args[think.args.indexOf("--sandbox") + 1]).toBe("read-only");
+      expect((await tape(root)).split('"category":"external_or_irreversible_action"').length - 1).toBe(3);
+      expect(await tape(root)).toContain('"type":"think.completed"');
+    });
+  }, 60000);
+
+  test("a failed think delivery to Claude is recorded, leaves nothing pending, and is retried on the next poll", async () => {
+    await withFixtureRepo("inject failed", async (root) => {
+      const { script, log } = fakeClaude(root);
+      const env = {
+        ...baseEnv(),
+        NIGHT_LOOP_CLAUDE_BIN: process.execPath,
+        NIGHT_LOOP_CLAUDE_SHIM: script,
+        FAKE_CLAUDE_LOG: log,
+        FAKE_AGENTS_JSON: JSON.stringify([{ id: "d4e5f79a", sessionId: SESSION_UUID, name: "night-loop", state: "working", status: "busy" }]),
+      };
+      seedHarness(root, false);
+      await cli(root, env, "setup", "--goal", "Claude inject failure");
+      await cli(root, env, "start");
+      for (let turn = 0; turn < 3; turn += 1) {
+        const hook = Bun.spawn([process.execPath, LOOP_HOOK], {
+          cwd: root,
+          env: { ...process.env, CLAUDE_PROJECT_DIR: root, NIGHT_LOOP_MAX_STEPS: "2000" },
+          stdin: "pipe",
+          stdout: "pipe",
+        });
+        hook.stdin.write("{}");
+        hook.stdin.end();
+        expect(await new Response(hook.stdout).text()).toContain("Ratchet is RED");
+      }
+      await once(root, { ...env, FAKE_RESUME_EXIT: "7" });
+      let events = await tape(root);
+      expect(events).toContain('"type":"think.inject_failed"');
+      expect(events).toContain('"exitCode":7');
+      expect(events).not.toContain('"type":"think.injected"');
+      expect(readJsonFile<{ pendingThink?: unknown }>(statePath(root, "run.json")).pendingThink).toBeUndefined();
+      expect((await calls(log)).at(-1)!.args.slice(0, 2)).toEqual(["--resume", SESSION_UUID]);
+      // The same evidence is still there, so the next healthy poll delivers the think turn.
+      await once(root, env);
+      events = await tape(root);
+      expect(events.split('"type":"stuck.detected"').length - 1).toBe(2);
+      expect(events).toContain('"type":"think.injected"');
+      expect(readJsonFile<{ pendingThink: { episode: number; injectedStep: number } }>(statePath(root, "run.json")).pendingThink)
+        .toMatchObject({ episode: 2, injectedStep: 3 });
+    });
+  }, 60000);
+
+  test("a Claude session whose steps advance without changing the tree is stuck as no_progress", async () => {
+    await withFixtureRepo("claude tree", async (root) => {
+      const gitEnv = { GIT_AUTHOR_NAME: "t", GIT_AUTHOR_EMAIL: "t@t", GIT_COMMITTER_NAME: "t", GIT_COMMITTER_EMAIL: "t@t" };
+      expect((await runCommand(["git", "init", "-q"], { cwd: root, env: gitEnv })).exitCode).toBe(0);
+      seedHarness(root, true);
+      atomicWriteFile(join(root, ".gitignore"), ".night-loop/state/\n*.jsonl\n");
+      await runCommand(["git", "add", "-A"], { cwd: root, env: gitEnv });
+      await runCommand(["git", "commit", "-q", "-m", "seed"], { cwd: root, env: gitEnv });
+      const { script, log } = fakeClaude(root);
+      const env = {
+        ...baseEnv(),
+        NIGHT_LOOP_CLAUDE_BIN: process.execPath,
+        NIGHT_LOOP_CLAUDE_SHIM: script,
+        FAKE_CLAUDE_LOG: log,
+        FAKE_AGENTS_JSON: JSON.stringify([{ id: "d4e5f79a", sessionId: SESSION_UUID, name: "night-loop", state: "working", status: "busy" }]),
+      };
+      await cli(root, env, "setup", "--goal", "Claude idle tree");
+      await cli(root, env, "start");
+      // Steps advance (the Stop hook ran) but the tree never changes.
+      for (let step = 1; step <= 3; step += 1) {
+        atomicWriteFile(statePath(root, "STEP"), `${step}\n`);
+        await once(root, env);
+      }
+      let events = await tape(root);
+      expect(events).toContain('"reason":"no_progress"');
+      expect(events).toContain('"type":"think.injected"');
+      expect((await calls(log)).at(-1)!.args.at(-1)).toContain("working tree unchanged for 3 turns");
+      // A tree that changes between steps is never called stuck.
+      await withFixtureRepo("claude busy tree", async (busyRoot) => {
+        expect((await runCommand(["git", "init", "-q"], { cwd: busyRoot, env: gitEnv })).exitCode).toBe(0);
+        seedHarness(busyRoot, true);
+        atomicWriteFile(join(busyRoot, ".gitignore"), ".night-loop/state/\n*.jsonl\n");
+        await runCommand(["git", "add", "-A"], { cwd: busyRoot, env: gitEnv });
+        await runCommand(["git", "commit", "-q", "-m", "seed"], { cwd: busyRoot, env: gitEnv });
+        const busy = fakeClaude(busyRoot);
+        const busyEnv = { ...env, NIGHT_LOOP_CLAUDE_SHIM: busy.script, FAKE_CLAUDE_LOG: busy.log };
+        await cli(busyRoot, busyEnv, "setup", "--goal", "Claude busy tree");
+        await cli(busyRoot, busyEnv, "start");
+        for (let step = 1; step <= 4; step += 1) {
+          atomicWriteFile(statePath(busyRoot, "STEP"), `${step}\n`);
+          atomicWriteFile(join(busyRoot, "work.txt"), `step ${step}\n`);
+          await once(busyRoot, busyEnv);
+        }
+        events = await tape(busyRoot);
+        expect(events).not.toContain('"type":"stuck.detected"');
+      });
+    });
+  }, 90000);
 
   test("a stuck Claude session receives the think prompt through native resume and completes on STEP progress", async () => {
     await withFixtureRepo("think claude", async (root) => {

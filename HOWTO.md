@@ -162,6 +162,14 @@ agent itself. Stop the run first (`night-loop stop`) if you genuinely need to
 change the control plane, and treat any unexpected occurrence of this message
 as a red flag worth reading the event ledger for.
 
+### "Workspace not trusted. Run `claude` in <dir> once and accept the trust prompt"
+
+`claude --bg` refuses a directory that was never trusted, and trust is per git root: a
+nested repository or worktree does not inherit it from the folder above. Open a normal
+`claude` session in that exact directory once, accept the prompt, exit, and start again.
+`night-loop start` records the refusal as `run.launch_failed` in the event tape, and
+`bun run smoke:live` exits 4 with the same instruction (decision 016).
+
 ### e2e tests flake with EBUSY on Windows
 
 Windows releases directory handles lazily, so a fixture cleanup can race the

@@ -1,0 +1,158 @@
+diff --git a/.night-loop/hooks/gate.ts b/.night-loop/hooks/gate.ts
+index 9bb8fd3..e8a2999 100644
+--- a/.night-loop/hooks/gate.ts
++++ b/.night-loop/hooks/gate.ts
+@@ -4,6 +4,7 @@
+ // and it ALLOWS security-surface code while flagging it for a morning review. Safety overnight
+ // comes from the jail + only-test-credentials, not from stopping the loop. Current CC schema.
+ import { resolve } from "node:path";
++
+ import { appendEvent, appendMarker, markerPath, ROOT } from "./lib";
+ import { pathExists, readJsonFile, readLedger } from "../../src/core";
+ 
+@@ -37,11 +38,21 @@ const CONTROL_PATHS = [
+ const raw = await Bun.stdin.text();
+ let p: any = {};
+ try { p = JSON.parse(raw); }
+-catch { console.error("[gate] unparseable payload, allowing. Verify hook schema."); process.exit(0); }
++catch {
++  // Fail closed (decision 012): a payload the gate cannot read is not a payload it can clear.
++  console.error("[gate] unparseable payload, denying.");
++  console.log(JSON.stringify({ hookSpecificOutput: { hookEventName: "PreToolUse", permissionDecision: "deny", permissionDecisionReason: "NIGHT LOOP could not parse the hook payload." } }));
++  process.exit(0);
++}
+ 
+ const tool = p.tool_name ?? p.tool ?? "";
+ const ti = p.tool_input ?? p.input ?? {};
+ 
++// Think and consult turns are read-only (decision 015). The turn supervisor exports
++// NIGHT_LOOP_THINK=1 for the whole provider process, so the gate can hold the line the
++// provider sandbox already draws. Claude think turns stay instruction-only (decision 016).
++const thinkTurn = process.env.NIGHT_LOOP_THINK === "1";
++
+ function emit(decision: "deny" | "allow", reason: string, context?: string): never {
+   const out: any = { hookEventName: "PreToolUse", permissionDecision: decision };
+   if (decision === "deny") out.permissionDecisionReason = reason;
+@@ -64,6 +75,10 @@ if (tool === "Bash") {
+ }
+ 
+ if (tool === "Edit" || tool === "Write" || tool === "MultiEdit") {
++  if (thinkTurn) {
++    appendEvent("policy.blocked", { tool, category: "think_turn_read_only", action: "reason_then_plan" });
++    emit("deny", "NIGHT LOOP think turn is read-only. Reason about the evidence and end with a PLAN: line; edits resume on the next build turn.");
++  }
+   const path = ti.file_path ?? ti.path ?? "";
+   const normalized = path.replaceAll("\\", "/");
+   const absolute = resolve(ROOT, path);
+@@ -88,8 +103,13 @@ if (tool === "Agent" || tool === "Workflow") {
+     appendEvent("judge.invoked", { subagentType });
+     process.exit(0);
+   }
++  // The armed run exports NIGHT_LOOP_WORKERS (generated Claude settings, turn supervisor);
++  // contract.json is the fallback, since an attended setup may already describe the next night.
++  const armed = process.env.NIGHT_LOOP_WORKERS ?? "";
+   const contract = markerPath("contract.json");
+-  const workers = pathExists(contract) ? readJsonFile<any>(contract).limits?.workers ?? 1 : 1;
++  const workers = armed !== ""
++    ? (armed === "auto" ? "auto" : Number(armed))
++    : pathExists(contract) ? readJsonFile<any>(contract).limits?.workers ?? 1 : 1;
+   const cap = workers === "auto" ? 4 : Number(workers);
+   const events = readLedger(markerPath("events.jsonl"));
+   const starts = events.filter((event) => event.type === "claude.subagentstart").length;
+diff --git a/hooks/hooks.json b/hooks/hooks.json
+index cd93419..58efea9 100644
+--- a/hooks/hooks.json
++++ b/hooks/hooks.json
+@@ -7,7 +7,8 @@
+         "hooks": [
+           {
+             "type": "command",
+-            "command": "sh \"${CLAUDE_PLUGIN_ROOT}/.night-loop/hooks/with-bun.sh\" gate.ts"
++            "command": "sh \"${CLAUDE_PLUGIN_ROOT}/.night-loop/hooks/with-bun.sh\" gate.ts",
++            "onFailure": "block"
+           }
+         ]
+       }
+@@ -17,7 +18,8 @@
+         "hooks": [
+           {
+             "type": "command",
+-            "command": "sh \"${CLAUDE_PLUGIN_ROOT}/.night-loop/hooks/with-bun.sh\" loop.ts"
++            "command": "sh \"${CLAUDE_PLUGIN_ROOT}/.night-loop/hooks/with-bun.sh\" loop.ts",
++            "timeout": 1800
+           }
+         ]
+       }
+diff --git a/test/e2e/gate-attended.test.ts b/test/e2e/gate-attended.test.ts
+new file mode 100644
+index 0000000..af2953a
+--- /dev/null
++++ b/test/e2e/gate-attended.test.ts
+@@ -0,0 +1,67 @@
++import { describe, expect, test } from "bun:test";
++import { join } from "node:path";
++import { atomicWriteJson, readJsonFile, withFixtureRepo } from "../../src/core";
++
++// Decision 012 attended edits: the gate fails closed on an unreadable payload, reads the armed
++// worker cap from the environment before contract.json, and holds think turns read-only.
++const PRODUCT_ROOT = join(import.meta.dir, "..", "..");
++const GATE_HOOK = join(PRODUCT_ROOT, ".night-loop", "hooks", "gate.ts");
++
++async function gate(root: string, payload: string, env: Record<string, string> = {}) {
++  const child = Bun.spawn([process.execPath, GATE_HOOK], {
++    cwd: root,
++    env: { ...process.env, CLAUDE_PROJECT_DIR: root, NIGHT_LOOP_THINK: "", NIGHT_LOOP_WORKERS: "", ...env },
++    stdin: "pipe",
++    stdout: "pipe",
++    stderr: "pipe",
++  });
++  child.stdin.write(payload);
++  child.stdin.end();
++  const [stdout, exitCode] = await Promise.all([new Response(child.stdout).text(), child.exited]);
++  return { stdout, exitCode, decision: stdout.trim() ? (JSON.parse(stdout) as { hookSpecificOutput: { permissionDecision: string } }).hookSpecificOutput.permissionDecision : "allow" };
++}
++
++describe("attended gate hardening (decision 012)", () => {
++  test("an unparseable payload is denied, not allowed", async () => {
++    await withFixtureRepo("gate unparseable", async (root) => {
++      const result = await gate(root, "{not json");
++      expect(result.exitCode).toBe(0);
++      expect(result.decision).toBe("deny");
++      expect(result.stdout).toContain("could not parse");
++    });
++  });
++
++  test("the armed NIGHT_LOOP_WORKERS wins over a later contract.json", async () => {
++    await withFixtureRepo("gate workers", async (root) => {
++      const agent = JSON.stringify({ tool_name: "Agent", tool_input: { subagent_type: "general-purpose", prompt: "work" } });
++      atomicWriteJson(join(root, ".night-loop", "state", "contract.json"), { limits: { workers: 8 } });
++      expect((await gate(root, agent, { NIGHT_LOOP_WORKERS: "1" })).decision).toBe("deny");
++      atomicWriteJson(join(root, ".night-loop", "state", "contract.json"), { limits: { workers: 1 } });
++      expect((await gate(root, agent, { NIGHT_LOOP_WORKERS: "8" })).decision).toBe("allow");
++      expect((await gate(root, agent, { NIGHT_LOOP_WORKERS: "auto" })).decision).toBe("allow");
++      expect((await gate(root, agent)).decision).toBe("deny");
++    });
++  });
++
++  test("a think turn denies edits but still allows reading and still gates escapes", async () => {
++    await withFixtureRepo("gate think", async (root) => {
++      const write = JSON.stringify({ tool_name: "Write", tool_input: { file_path: "src/a.ts", content: "x" } });
++      const edit = JSON.stringify({ tool_name: "Edit", tool_input: { file_path: "src/a.ts", old_string: "a", new_string: "b" } });
++      const log = JSON.stringify({ tool_name: "Bash", tool_input: { command: "git log --oneline -3" } });
++      const push = JSON.stringify({ tool_name: "Bash", tool_input: { command: "git push origin main" } });
++      expect((await gate(root, write, { NIGHT_LOOP_THINK: "1" })).decision).toBe("deny");
++      expect((await gate(root, edit, { NIGHT_LOOP_THINK: "1" })).decision).toBe("deny");
++      expect((await gate(root, log, { NIGHT_LOOP_THINK: "1" })).decision).toBe("allow");
++      expect((await gate(root, push, { NIGHT_LOOP_THINK: "1" })).decision).toBe("deny");
++      expect((await gate(root, write)).decision).toBe("allow");
++      const tape = await Bun.file(join(root, ".night-loop", "state", "events.jsonl")).text();
++      expect(tape.split('"category":"think_turn_read_only"').length - 1).toBe(2);
++    });
++  });
++
++  test("the plugin hooks fail closed and give the verifier a full-harness timeout", () => {
++    const hooks = readJsonFile<{ hooks: Record<string, Array<{ hooks: Array<Record<string, unknown>> }>> }>(join(PRODUCT_ROOT, "hooks", "hooks.json"));
++    expect(hooks.hooks.PreToolUse![0]!.hooks[0]!.onFailure).toBe("block");
++    expect(hooks.hooks.Stop![0]!.hooks[0]!.timeout).toBe(1800);
++  });
++});
